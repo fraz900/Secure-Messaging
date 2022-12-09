@@ -1,3 +1,4 @@
 NEA-main/SERVER/log.txt
 *.txt
 _pycache_
+*.db
