@@ -1,6 +1,7 @@
 import tkinter as tk
 from PIL import Image, ImageTk
 from online.client import *
+from user_data.user_utils import user
 import os
 import time
 import threading
@@ -10,13 +11,27 @@ class GUI():
 
     def __init__(self):
         self.c = connection()
+        self.u = user()
         user32 = ctypes.windll.user32
         self.resolution = user32.GetSystemMetrics(0),user32.GetSystemMetrics(1)
-
+        
     def start(self):
         if self.c.ping():
-           self.login()
+            if self.u.exists:
+                try:
+                    check = self.c.login(self.u.username,self.u.pass_hash,hashed=True)
+                    if not check:
+                        self.u.delete()
+                        self.login()
+                    else:
+                        self.menu()
+                except Exception as e:
+                    self.u.delete()
+                    self.login()
+            else:
+                self.login()
         else:
+            #add offline mode
             self.error("Connection error, cannot connect to server.\n Please try again later")
 
     def error(self,error_message):
@@ -56,6 +71,7 @@ class GUI():
             try:
                 check = self.c.login(name,password)
                 if check:
+                    user.create(name,self.c._hash(password))
                     top.destroy()
                     self.menu()
             except:
@@ -63,7 +79,18 @@ class GUI():
             end_loading()
             name_var.set("")
             passw_var.set("")
-
+        def register():
+            name=name_var.get()
+            password=passw_var.get()
+            check = self.c.create_account(name,password)
+            if check:
+                login_error.config(text="Account created",fg="green")
+                self.u.create(name,self.c._hash(password))
+                time.sleep(1)
+                top.destroy()
+                self.menu()
+            else:
+                login_error.config(text="Error creating account",fg="red")
         txt_frm = tk.Frame(top,width=400,height=250)
         txt_frm.grid(row=0,column=0, sticky="n")
         name_label = tk.Label(txt_frm, text = 'Username', font=('calibre',10, 'bold'))  
@@ -71,6 +98,7 @@ class GUI():
         passw_label = tk.Label(txt_frm, text = 'Password', font = ('calibre',10,'bold'))
         passw_entry = tk.Entry(txt_frm, textvariable = passw_var, font = ('calibre',10,'normal'), show = '*')
         sub_btn=tk.Button(txt_frm,text = 'Submit', command = handler)
+        reg_btn = tk.Button(txt_frm,text="Register",command=register)
         
         login_error = tk.Label(txt_frm,text="",font=("calibre",10))
 
@@ -88,6 +116,7 @@ class GUI():
         passw_label.grid(row=2,column=0)
         passw_entry.grid(row=2,column=1)
         sub_btn.grid(row=3,column=1)
+        reg_btn.grid(row=5,column=1)
         login_error.grid(row=4,column=1)
 
         imagelist = []
@@ -150,4 +179,4 @@ class GUI():
         
 if __name__ == "__main__":
     g = GUI()
-    g.start()
+    g.login()

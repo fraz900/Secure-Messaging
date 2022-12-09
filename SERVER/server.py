@@ -22,6 +22,7 @@ class connection():
         #files
         self.AUTHCODES = "resources/active_auth_codes.txt"
         self.USERACCOUNTS = "resources/user_accounts.txt"
+        self.MANIFEST = "manifest.txt"
         #commands
         self.REFRESHAUTH = "rac"
         self.CREATEACCOUNT = "ca"
@@ -59,7 +60,11 @@ class connection():
         if check == self.GENERATEKEY:
             generating_key = True
         else:
-            command = self._recieve_message(c,setup=True)
+            try:
+                command = self._recieve_message(c,setup=True)
+            except ConnectionAbortedError:
+                self.log(ip,"ping")
+                return
             if not command:
                 return
             command = command.strip()
@@ -166,10 +171,13 @@ class connection():
         passed = False
         for code in codes:
             code = code.split(",")
-            acode = code[1]
-            if acode == refresh_code:
-                person = code[0]
-                passed = True
+            try:
+                acode = code[1]
+                if acode == refresh_code:
+                    person = code[0]
+                    passed = True
+            except:
+                None
 
         if passed:
             auth_code = secrets.token_hex(32)
@@ -584,7 +592,7 @@ class connection():
                 self._send_message(user,self.NOTALLOWED)
                 return
         self._send_message(user,self.GOAHEAD)
-        enter = f"\n{username},{password}"
+        enter = f"{username},{password}\n"
         file = open(self.USERACCOUNTS,"a")
         file.write(enter)
         file.close()

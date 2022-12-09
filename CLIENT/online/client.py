@@ -7,7 +7,7 @@ try:
 except:
     from encryption import DH,AES
 class connection():
-    def __init__(self,IP="127.0.0.1",PORT=12345,debug=False):
+    def __init__(self,IP="127.0.0.1",PORT=12345,debug=True):
         self.DEBUG = debug
         #network things
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -25,9 +25,11 @@ class connection():
         self.CHECKAUTH_COMMAND = "cac"
         self.GETOWNERSHIP = "go"
         self.GENERATEKEY = "gk"
+        self.PING = "pi"
         #responses
         self.GOAHEAD = "200"
         self.WARNINGS = {"400":"client error, incorrect command","401":"authentication error, failure to authenticate","404":"resource not found","500":"Data not allowed","501":"invalid resource"}
+        self.MATCHMAKINGERROR = "100"
         #other
         try:
             file = open("details.txt","r")
@@ -76,6 +78,7 @@ class connection():
         try:
             error = self.WARNINGS[error]
         except KeyError:
+            print(error)
             error = "UNKNOWN ERROR"
         raise Exception(error)
     def _size(self,s)->int:
@@ -90,6 +93,7 @@ class connection():
 
         if generate_key:
             self._send_message(self.s,self.GENERATEKEY,setup=True)
+            self._recieve_message(setup=True)
             diffie = DH()
             dhKey = diffie.generate_key()
             modulus = diffie.generate_prime()
@@ -106,6 +110,7 @@ class connection():
             self.key = a.produce_key(final)
         else:
             self._send_message(self.s,self.GOAHEAD,setup=True)
+            self._recieve_message(setup=True)
     def get_auth_token(self):
         current_time = time.time()
         try:
@@ -177,7 +182,7 @@ class connection():
         self._send_message(self.s,self.GOAHEAD)
         data = self._recieve_message()
         if data == self.GOAHEAD:
-            entry = f"\n{username},{password}"
+            entry = f"{username},{password}"
             file = open("details.txt","w")
             file.write(entry)
             file.close()
@@ -267,10 +272,9 @@ class connection():
             return True
         except:
             return False
-    def login(self,username,password):
-        hasher = hashlib.sha256()
-        hasher.update(password.encode())
-        password = hasher.hexdigest()
+    def login(self,username,password,hashed=False):
+        if not hashed:
+            password = self._hash(password)
         self._initiate_connection()
         self._send_message(self.s,self.CHECKLOGIN)
         data = self._recieve_message()
@@ -288,6 +292,12 @@ class connection():
             self._error_handling(data)
             return False
         return True
+
+    def _hash(self,string):
+        hasher = hashlib.sha256()
+        hasher.update(string.encode())
+        return(hasher.hexdigest())
+    
     def update(self,filename,new):
         auth = self.authenticated_start()
 
@@ -409,21 +419,62 @@ class connection():
         content = self._recieve_message(size=size)
         return content
 
+    def ping_time(self):
+        self._initiate_connection(generate_key=False)
+        current_time = time.time()
+        self._send_message(self.s,self.PING,setup=True)
+        self._recieve_message(setup=True)
+        new_time = time.time()
+        pinger = new_time-current_time
+        return pinger*1000
+
+    
 if __name__ == "__main__":      
     c = connection()
-    #a = c.get_auth_token()
-    print(c.ping())
-    time.sleep(1)
-    name = c.upload("this do be a test 2699","testing234",shared=False)
-    time.sleep(1)
-    print(c.view(name))
-    time.sleep(1)
-    c.share(name,"test")
-    time.sleep(1)
-    print(c.get_ownership(name))
-    time.sleep(1)
-    c.delete(name)
-    #print(a)
-    #c.create_account("Fraz900","admin")
-    #c.upload("this is a test","testing")
-
+    file_test = True
+    match_test = False
+    account_test = False
+    ping_test = False
+    if ping_test:
+        print(c.ping())
+    if file_test:
+        print(c.ping())
+        time.sleep(1)
+        name = c.upload("this do be a test 2699","testing234",shared=False)
+        time.sleep(1)
+        print(c.view(name))
+        time.sleep(1)
+        c.share(name,"test")
+        time.sleep(1)
+        print(c.get_ownership(name))
+        time.sleep(1)
+        c.delete(name)
+    if match_test:
+        print("matchmaking start")
+        check = c.matchmaking()
+        print("matchmaking")
+        if check == 0:
+            print("matchmaking error")
+            exit()
+        checking = False
+        while not checking:
+            print("checking")
+            checking = c.check_matchmaking()
+            time.sleep(2)
+            print("checked")
+        match_name = checking
+        print("starting")
+        checker = c.start_game(match_name)
+        print("started")
+        if not checker:
+            print("start game error")
+            exit()
+        token = checker
+        print(c.get_scores(match_name))
+        time.sleep(1)
+        c.upload_score(match_name,token,20)
+        time.sleep(1)
+        print(c.get_scores(match_name))
+    if account_test:
+        c.create_account("account","password")
+        c.get_auth_token()
