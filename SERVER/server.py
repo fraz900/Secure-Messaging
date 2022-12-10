@@ -6,6 +6,7 @@ import threading
 import os
 import sys
 import time
+from database import tokens
 from encryption import DH,AES
 class connection():
     def __init__(self):
@@ -36,10 +37,14 @@ class connection():
         self.GETOWNERSHIP = "go"
         self.GENERATEKEY = "gk"
         self.PING = "pi"
+        self.SEND_USER_MESSAGE = "sm"
+        self.USE_KEY = "us"
         #other
         self.LARGESIZE = 20000
         self.KEYTIMEOUT = 3600 #seconds, one hour
         self.TIMEOUT = 20
+        self.t = tokens()
+        
     def start(self)->None:
         print("online")
         self.s = socket.socket()
@@ -65,13 +70,18 @@ class connection():
             except ConnectionAbortedError:
                 self.log(ip,"ping")
                 return
+
             if not command:
                 return
             command = command.strip()
-            
+            print(command)
             match command:#unencrypted commands
                 case self.PING:
                     self.ping(c)
+                case self.USE_KEY:
+                    self.use_key(c,ip)
+                case _:
+                    self.log(ip,f"unknown command {command}")
             print(command)
             return True
         if generating_key:
@@ -92,9 +102,19 @@ class connection():
             a = AES("")
             self.key = a.produce_key(diffie.equation(bg,dhkey,modulus))
             print(self.key)
+            check = False
+            while not check:
+                key_toke = secrets.token_hex(32)
+                check = self.t.add_key_token(self.key,key_toke)
+            
+            self._recieve_message(c)
+            self._send_message(c,key_toke)
         command = self._recieve_message(c)
         if not command:
             return
+        self.match_command(c,command,ip)
+
+    def match_command(self,c,command,ip):
         command = command.strip()
         match command:#encrypted commands
             case self.REFRESHAUTH:
@@ -117,12 +137,15 @@ class connection():
                 self.get_ownership(c)
             case self.CHECKLOGIN:
                 self.login(c,ip)
+            case self.SEND_USER_MESSAGE:
+                self.send_user_message(c)
             case _:
                 print("command",command)
                 self._send_message(c,self.FAILURE)
                 c.close()
         self.log(ip,command)
         print(command)
+        
     def log(self,ip,command):
         current_time = time.time()
         os.chdir(os.path.split(__file__)[0])
@@ -308,6 +331,7 @@ class connection():
             return
         while True:
             self.clear_codes(self.AUTHCODES,timer)
+            #TODO add key_token monitoring
             time.sleep(600)
 
     def user_auth_checking(self,user):
@@ -453,7 +477,7 @@ class connection():
         file.close()
         self._send_message(user,content)
         user.close()
-    def login(self,user,ip):
+    def login(self,user,ip): #throws an error but works?
         self._send_message(user,self.GOAHEAD)
         username = self._recieve_message(user)
         file = open(self.USERACCOUNTS,"r")
@@ -650,6 +674,26 @@ class connection():
     def _size(self,s)->int:
         return len(s.encode('utf-8')) 
 
+    def use_key(self,c,ip):
+        self._send_message(c,self.GOAHEAD,setup=True)
+        token = self._recieve_message(c,size=self.LARGESIZE,setup=True)
+        check = self.t.check_token(token)
+        print(check)
+        if not check:
+            self._send_message(c,self.AUTHERROR,setup=True)
+            c.close()
+            return False
+        else:
+            self.key = check
+            self._send_message(c,self.GOAHEAD,setup=True)
+
+        command = self._recieve_message(c)
+        self.match_command(c,command,ip)
+        
+
+        self.match_command(c,command,ip)
+    def send_user_message(c):#TODO
+        username = self._authenticate(user)
              
 if __name__ == "__main__":
     a = connection()

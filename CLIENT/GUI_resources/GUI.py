@@ -21,12 +21,12 @@ class GUI():
                 try:
                     check = self.c.login(self.u.username,self.u.pass_hash,hashed=True)
                     if not check:
-                        self.u.delete()
+                        self.u.delete("account")
                         self.login()
                     else:
-                        self.menu()
+                        self.main()
                 except Exception as e:
-                    self.u.delete()
+                    self.u.delete("account")
                     self.login()
             else:
                 self.login()
@@ -68,15 +68,16 @@ class GUI():
         def submit():
             name=name_var.get()
             password=passw_var.get()
-            try:
-                check = self.c.login(name,password)
-                if check:
-                    user.create(name,self.c._hash(password))
-                    top.destroy()
-                    self.menu()
-            except:
-                login_error.config(text="username or password incorrect",fg="red")
+            #try:
+            check = self.c.login(name,password)
+            if check:
+                self.u.create(name,self.c._hash(password))
+                top.destroy()
+                self.main()
+            #except Exception as e:
+                #login_error.config(text="username or password incorrect",fg="red")
             end_loading()
+            
             name_var.set("")
             passw_var.set("")
         def register():
@@ -88,7 +89,7 @@ class GUI():
                 self.u.create(name,self.c._hash(password))
                 time.sleep(1)
                 top.destroy()
-                self.menu()
+                self.main()
             else:
                 login_error.config(text="Error creating account",fg="red")
         txt_frm = tk.Frame(top,width=400,height=250)
@@ -133,7 +134,6 @@ class GUI():
             gif = giflist[n%len(giflist)]
             top.resizer = resizer = ImageTk.PhotoImage(gif.resize((50,50),Image.ANTIALIAS))
             img = canvas.create_image(235,25, image=top.resizer)
-            print(repeat)
             if repeat:
                 timer_id = top.after(100, start_loading, n+1)
             else:
@@ -146,29 +146,34 @@ class GUI():
         top.mainloop()
 
         
-    def menu(self):
+    def main(self):
         top = tk.Tk()
-        #size = f"{self.resolution[0]}x{self.resolution[1]}"
-        size = "600x700"
+        size = f"{self.resolution[0]}x{self.resolution[1]}"
+        #size = "600x700"
         top.geometry(size)
-        top.title("menu")
-        top.configure(bg="red")
+        top.title("messaging_screen")
+        top.configure(bg="cyan")
+
         #canvas=tk.Canvas(top, width=self.resolution[0], height=self.resolution[1])
-        canvas = tk.Canvas(top,width=600,height=350)
-        canvas.grid(row=0,column=0)
+        #canvas = tk.Canvas(top,width=600,height=350)
+        #canvas.grid(row=0,column=0)
+
         top.grid_rowconfigure(0, weight=0)
         top.grid_columnconfigure(0, weight=0)
-        def play():
+        message = tk.StringVar()
+        def send():
             top.destroy()
-            self.game_menu()
         def exiter():
             top.destroy()
             exit()
         frame = tk.Frame(top,width=400,height=100,bg="red")
         frame.grid(row=1,column=0, sticky="n")
         
-        play_button = tk.Button(frame,text = "play", command = play)
-        play_button.grid(row=1,column=1,padx=10,pady=10)
+        message_entry = tk.Entry(frame,textvariable = message, font=('calibre',10,'normal'))
+        message_entry.grid(row=1,column=0)
+        
+        send_button = tk.Button(frame,text = "send", command = send)
+        send_button.grid(row=1,column=1,padx=10,pady=10)
 
         exit_button = tk.Button(frame,text="exit",command=exiter)
         exit_button.grid(row=2,column=1)
@@ -179,4 +184,5 @@ class GUI():
         
 if __name__ == "__main__":
     g = GUI()
-    g.login()
+    g.main()
+    #g.login()

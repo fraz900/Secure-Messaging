@@ -1,9 +1,10 @@
 import sqlite3
+import time
 
 PATH = "resources/info.db"
-conn = sqlite3.connect(PATH)
-c = conn.cursor()
-def create_tables():
+info_conn = sqlite3.connect(PATH, check_same_thread=False)
+info_c = info_conn.cursor()
+def create_tables_info():
     command = """CREATE TABLE IF NOT EXISTS Users (
 username string PRIMARY KEY,
 password string NOT NULL,
@@ -27,20 +28,84 @@ recieving_user string NOT NULL,
 FOREIGN KEY(sending_user) REFERENCES Users(username),
 FOREIGN KEY(recieving_user) REFERENCES Users(username));"""
     c.execute(command)
-
+  
 def add_user(uname,pword,time):
-    c.execute(f"""INSERT INTO Users (username,password,account_creation_time)
-    VALUES ("{uname}","{pword}","{time}")""")
-    conn.commit()
+    info_c.execute(f"""INSERT INTO Users (username,password,account_creation_time)
+    VALUES ("{uname}","{pword}","{time}");""")
+    info_conn.commit()
 
 def delete_table(table):
-    c.execute(f"DROP TABLE {table}")
-    conn.commit()
-create_tables()
-#add_user("test2","test3","2021-04-23")
+    info_c.execute(f"DROP TABLE {table}")
+    info_conn.commit()
 
-c.execute("""SELECT * FROM Users""")
-rows = c.fetchall()
-for row in rows:
-    print(row)
-#create_tables()
+
+class tokens():
+    def __init__(self,time_limit=600):
+        self.token_conn = sqlite3.connect("resources/tokens.db", check_same_thread=False)
+        self.token_c = self.token_conn.cursor()
+        self.time_limit = time_limit
+        #TODO add authentication tokens table + methods
+        command = """CREATE TABLE IF NOT EXISTS key_tokens(
+    id string PRIMARY KEY,
+    key BLOB NOT NULL,
+    creation_time real NOT NULL);"""
+        self.token_c.execute(command)
+        self.token_conn.commit()
+        
+    def __repr__(self):
+        self.token_c.execute("SELECT * FROM key_tokens")
+        rows = self.token_c.fetchall()
+        for row in rows:
+            print(row)
+        return ""
+    
+    def add_key_token(self,key,token):
+        if not self.check_token(token):
+            print()
+            print(key)
+            print()
+            current_time = time.time()
+            command = f"""INSERT INTO key_tokens(id,key,creation_time)
+            VALUES ("{token}","{key}",{current_time})"""
+            self.token_c.execute(command)
+            self.token_conn.commit()
+            return True
+        else:
+            self.cleanup()
+            return False
+        
+    def check_token(self,token,time_limit=None):
+        time_limit = self.time_limit if time_limit is None else time_limit
+        current_time = time.time()
+        command = f"""SELECT key FROM key_tokens WHERE id="{token}"
+                    AND ({current_time} - creation_time) < {time_limit}"""
+        self.token_c.execute(command)
+        rows = self.token_c.fetchall()
+        if len(rows) == 0:
+            return False
+        else:
+            return rows[0][0]
+    def cleanup(self,time_limit=None):
+        time_limit = self.time_limit if time_limit is None else time_limit
+        current_time = time.time()
+        command = f"""DELETE FROM key_tokens WHERE
+                    ({current_time} - creation_time) > {time_limit}"""
+        self.token_c.execute(command)
+        self.token_conn.commit()
+        
+    def close(self):
+        self.token_c.close()
+        self.token_conn.close()
+if __name__ == "__main__":
+    t = tokens()
+    #t.add_key_token(2134235,"broski")
+    print(t)
+    #t.cleanup()
+    print(t.check_token("broski2"))
+    print(t.check_token("babooy"))
+    t.close()
+    #time.sleep(5)
+    #t.cleanup()
+    #print(t)
+
+

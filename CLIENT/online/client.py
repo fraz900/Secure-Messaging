@@ -6,6 +6,7 @@ try:
     from online.encryption import DH,AES
 except:
     from encryption import DH,AES
+from user_data.user_utils import user
 class connection():
     def __init__(self,IP="127.0.0.1",PORT=12345,debug=True):
         self.DEBUG = debug
@@ -26,8 +27,11 @@ class connection():
         self.GETOWNERSHIP = "go"
         self.GENERATEKEY = "gk"
         self.PING = "pi"
+        self.SEND_USER_MESSAGE = "sm"
+        self.USE_KEY = "us"
         #responses
         self.GOAHEAD = "200"
+        self.AUTHERROR = "401"
         self.WARNINGS = {"400":"client error, incorrect command","401":"authentication error, failure to authenticate","404":"resource not found","500":"Data not allowed","501":"invalid resource"}
         self.MATCHMAKINGERROR = "100"
         #other
@@ -45,6 +49,7 @@ class connection():
         self.AUTHCODE = None
         self.LARGESIZE = 20000
         self.UPLOADS = "uploads.txt"
+        self.u = user()
 
     def print1(self,message):
         if self.DEBUG:
@@ -83,7 +88,7 @@ class connection():
         raise Exception(error)
     def _size(self,s)->int:
         return len(s.encode('utf-8'))
-    def _initiate_connection(self,generate_key=True):
+    def _initiate_connection(self,encrypted=True): #creates a connection to the server, 
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.connect((self.SERVER_IP,self.PORT))
         data = self._recieve_message(setup=True)
@@ -91,23 +96,53 @@ class connection():
             self._error_handling(data)
             return False
 
-        if generate_key:
-            self._send_message(self.s,self.GENERATEKEY,setup=True)
-            self._recieve_message(setup=True)
-            diffie = DH()
-            dhKey = diffie.generate_key()
-            modulus = diffie.generate_prime()
-            base = diffie.generate_base(modulus)
-            ag = diffie.equation(base,dhKey,modulus)
-            self._send_message(self.s,modulus,setup=True)
-            self._recieve_message(setup=True)
-            self._send_message(self.s,base,setup=True)
-            self._recieve_message(setup=True)
-            self._send_message(self.s,ag,setup=True)
-            bg = int(self._recieve_message(setup=True))
-            final = diffie.equation(bg,dhKey,modulus)
-            a = AES("")
-            self.key = a.produce_key(final)
+        if encrypted:
+            check = self.u.check_key_token()
+            if check:
+                token,key = check
+                self._send_message(self.s,self.USE_KEY,setup=True)
+                self._recieve_message(setup=True)
+                self._send_message(self.s,self.USE_KEY,setup=True)
+                data = self._recieve_message(setup=True)
+                if data != self.GOAHEAD:
+                    self._error_handling(data)
+                    return False
+                self._send_message(self.s,token,setup=True)
+                accepted = self._recieve_message(setup=True)
+                if accepted == self.AUTHERROR:
+                    self.u.delete("key")
+                    self._initiate_connection()
+                    return 
+                elif accepted != self.GOAHEAD:
+                    self._error_handling(accepted)
+                    return False
+                self.key = key
+                return True
+            else:
+                self._send_message(self.s,self.GENERATEKEY,setup=True)
+                self._recieve_message(setup=True)
+                diffie = DH()
+                dhKey = diffie.generate_key()
+                modulus = diffie.generate_prime()
+                base = diffie.generate_base(modulus)
+                ag = diffie.equation(base,dhKey,modulus)
+                self._send_message(self.s,modulus,setup=True)
+                self._recieve_message(setup=True)
+                self._send_message(self.s,base,setup=True)
+                self._recieve_message(setup=True)
+                self._send_message(self.s,ag,setup=True)
+                bg = int(self._recieve_message(setup=True))
+                final = diffie.equation(bg,dhKey,modulus)
+                a = AES("")
+                self.key = a.produce_key(final)
+                self._send_message(self.s,self.GOAHEAD)
+                try:
+                    key_toke = self._recieve_message(size=self.LARGESIZE)
+                    self.u.store_key_token(self.key,key_toke)
+                    return
+                except Exception as e:
+                    self.print1(e)
+            
         else:
             self._send_message(self.s,self.GOAHEAD,setup=True)
             self._recieve_message(setup=True)
@@ -182,10 +217,6 @@ class connection():
         self._send_message(self.s,self.GOAHEAD)
         data = self._recieve_message()
         if data == self.GOAHEAD:
-            entry = f"{username},{password}"
-            file = open("details.txt","w")
-            file.write(entry)
-            file.close()
             self.REFRESH_CODE = password
             self.USER_NAME = username
             return True
@@ -420,7 +451,7 @@ class connection():
         return content
 
     def ping_time(self):
-        self._initiate_connection(generate_key=False)
+        self._initiate_connection(encrypted=False)
         current_time = time.time()
         self._send_message(self.s,self.PING,setup=True)
         self._recieve_message(setup=True)
@@ -428,6 +459,8 @@ class connection():
         pinger = new_time-current_time
         return pinger*1000
 
+    def send_user_message(self,message,recipient):
+        self._initiate_connection()
     
 if __name__ == "__main__":      
     c = connection()

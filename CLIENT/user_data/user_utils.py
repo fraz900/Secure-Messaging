@@ -30,10 +30,32 @@ class user():#stores user info and settings
         file = open("user_data/user_account.txt","w")
         file.write(entry)
         file.close()
+        return True
+    
+    def check_key_token(self):
+        try:
+            file = open("user_data/key_token.txt","r")
+            content = file.read()
+            file.close()
+            content = content.split("\n")
+            identifier = content[0]
+            key = content[1]
+            print("utils",key)
+            return identifier,key
+        except:
+            return False
+    def store_key_token(self,key,identifier):
+        file = open("user_data/key_token.txt","w")
+        entry = f"{identifier}\n{key}"
+        file.write(entry)
+        file.close()
+        return True
+
     def userExists(self):
         return self.exists
-    def delete(self):
-        os.remove("user_data/user_account.txt")
+    def delete(self,file):
+        matcher = {"account":"user_data/user_account.txt","key":"user_data/key_token.txt"}
+        os.remove(matcher[file])
 
 
 #database stuff (make object pls)
