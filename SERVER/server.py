@@ -21,7 +21,6 @@ class connection():
         self.GOAHEAD = "200"
         self.INVALID = "501"
         #files
-        self.AUTHCODES = "resources/active_auth_codes.txt"
         self.MANIFEST = "manifest.txt"
         #commands
         self.REFRESHAUTH = "rac"
@@ -161,9 +160,14 @@ class connection():
         else:
             a = AES(message)
             encrypted_message = a.encrypt(self.key)
-            sock.sendall(encrypted_message.encode())
+            try:
+                sock.sendall(encrypted_message.encode())
+            except OSError:
+                print("disconnected")
         print("sent : ",message)
     def _recieve_message(self,sock,setup=False,size=1024)-> str:
+        if size < 1024:
+            size = 1024
         try:
             data = sock.recv(size)
             data = data.decode()
@@ -175,8 +179,9 @@ class connection():
                 message = a.decrypt(self.key)
                 print("recieved :",message)
                 return message.strip()
-        except ConnectionResetError:
-            sys.exit()
+        except (ConnectionResetError,ConnectionAbortedError,TimeoutError,OSError) as e:#TODO add some sort of dictionary for readability
+            print("client",e)
+            sys.exit()            
             return False
     def ping(self,user):
         self._send_message(user,self.GOAHEAD,setup=True)
@@ -210,36 +215,10 @@ class connection():
             user.close()
 
     def check_auth(self,auth_code):
-        return(i.check_auth_token(auth_code))
+        return(self.i.check_auth_token(auth_code))
     
-    def clear_codes(self,file_name,time_limit):
-        file = open(file_name,"r")
-        content = file.read()
-        file.close()
-        content = content.split("\n")
-        for line in content:
-            allowed = True
-            formated_line = line.split(",")
-            if "," not in line:
-                content.remove(line)
-            try:
-                time_check = formated_line[2]
-                time_check = float(time_check)
-            except IndexError:
-                allowed = False
-                None
-            current_time = time.time()
-            if allowed:
-                if (current_time - time_check) > time_limit:
-                    content.remove(line)
-
-        final = ""
-        for line in content:
-            final += line
-            final += "\n"
-        file = open(self.AUTHCODES,"w")
-        file.write(final)
-        file.close()
+    def clear_codes(self):
+        self.i.cleanup()
 
     def _authenticate(self,user):
         self._send_message(user,self.GOAHEAD)
@@ -310,8 +289,7 @@ class connection():
             threading.Thread(target=self.monitor_auth,args=[timer,True]).start()
             return
         while True:
-            self.clear_codes(self.AUTHCODES,timer)
-            #TODO add key_token monitoring
+            self.clear_codes()
             time.sleep(600)
 
     def user_auth_checking(self,user):
@@ -646,8 +624,29 @@ class connection():
         
 
         self.match_command(c,command,ip)
-    def send_user_message(c):#TODO
-        username = self._authenticate(user)
+        
+    def send_user_message(self,c):
+        username = self._authenticate(c)
+        if not username:
+            c.close()
+            return False
+        recipient = self._recieve_message(c)
+        if not self.i.check_user(recipient):
+            self._send_message(c,self.NOTFOUND)
+            c.close()
+            return False
+        self._send_message(c,self.GOAHEAD)
+        size = self._recieve_message(c)#TODO implement some sort of size limit
+        size = int(round(float(size)))
+        size *= 2
+        self._send_message(c,self.GOAHEAD)
+        message = self._recieve_message(c,size=size)
+
+        self.i.add_message(username,recipient,message)
+        return True
+
+    def check_messages(self):#TODO
+        None
              
 if __name__ == "__main__":
     a = connection()

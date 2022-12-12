@@ -62,16 +62,23 @@ class connection():
             self.print1(self._size(encrypted_message))
             sock.sendall(encrypted_message.encode())
             
-    def _recieve_message(self,size=1024,setup=False):
+    def _recieve_message(self,size=1024,setup=False,goahead=False):
         data = self.s.recv(size)
         data = data.decode()
         if setup:
             self.print1(f"recieved : {data}")
+            if goahead:
+                if data.strip() != self.GOAHEAD:
+                    self._error_handling(data)
+                    return False
             return data.strip()
         else:
             a = AES(data)
             message = a.decrypt(self.key)
             self.print1(f"recieved : {message}")
+            if goahead:
+                if message.strip() != self.GOAHEAD:
+                    self._error_handling(data)
             return message.strip()
 
     def _error_handling(self,error):
@@ -88,10 +95,7 @@ class connection():
     def _initiate_connection(self,encrypted=True): #creates a connection to the server, 
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.connect((self.SERVER_IP,self.PORT))
-        data = self._recieve_message(setup=True)
-        if data != self.GOAHEAD:
-            self._error_handling(data)
-            return False
+        data = self._recieve_message(setup=True,goahead=True)
 
         if encrypted:
             check = self.u.check_key_token()
@@ -100,10 +104,7 @@ class connection():
                 self._send_message(self.s,self.USE_KEY,setup=True)
                 self._recieve_message(setup=True)
                 self._send_message(self.s,self.USE_KEY,setup=True)
-                data = self._recieve_message(setup=True)
-                if data != self.GOAHEAD:
-                    self._error_handling(data)
-                    return False
+                data = self._recieve_message(setup=True,goahead=True)
                 self._send_message(self.s,token,setup=True)
                 accepted = self._recieve_message(setup=True)
                 if accepted == self.AUTHERROR:
@@ -156,10 +157,7 @@ class connection():
                 self._initiate_connection()
                 self._send_message(self.s,self.CHECKAUTH_COMMAND)
                 data = self._recieve_message()
-                data = data.strip()
-                if data != self.GOAHEAD:
-                    self._error_handling(data)
-                    return False
+                data = data.strip(goahead=True)
                 self._send_message(self.s,self.AUTHCODE)
                 data = self._recieve_message()
                 self.s.close()
@@ -171,17 +169,9 @@ class connection():
         commands = [self.REFRESHAUTH_COMMAND,self.REFRESH_CODE]
         self._initiate_connection()
         self._send_message(self.s,self.REFRESHAUTH_COMMAND)
-        data = self._recieve_message()
-        data = data.strip()
-        if data != self.GOAHEAD:
-            self._error_handling(data)
-            return False
+        data = self._recieve_message(goahead=True)
         self._send_message(self.s,self.USER_NAME)
-        data = self._recieve_message()
-        data = data.strip()
-        if data != self.GOAHEAD:
-            self._error_handling(data)
-            return False
+        data = self._recieve_message(goahead=True)
         self._send_message(self.s,self.REFRESH_CODE)
         data = self._recieve_message(size=self.LARGESIZE)
         data = data.strip()
@@ -204,10 +194,7 @@ class connection():
         password = hasher.hexdigest()
         self._initiate_connection()
         self._send_message(self.s,self.CREATEACCOUNT)
-        data = self._recieve_message()
-        if data != self.GOAHEAD:
-            self._error_handling(data)
-            return False
+        data = self._recieve_message(goahead=True)
         correct = False
         while not correct:
             self._send_message(self.s,username)
@@ -230,14 +217,10 @@ class connection():
         if self.AUTHCODE == None:
             self.get_auth_token()
         auth = self.AUTHCODE
-        
+
         self._initiate_connection()
         self._send_message(self.s,self.CHECKAUTH_COMMAND)
-        data = self._recieve_message()
-        data = data.strip()
-        if data != self.GOAHEAD:
-            self._error_handling(data)
-            return False
+        data = self._recieve_message(goahead=True)
         self._send_message(self.s,auth)
         data = self._recieve_message()
         self.s.close()
@@ -285,9 +268,7 @@ class connection():
         self._send_message(self.s,size)
         self._recieve_message()
         self._send_message(self.s,data_to_send)
-        check = self._recieve_message()
-        if check != self.GOAHEAD:
-            self._error_handling(check)
+        check = self._recieve_message(goahead=True)
         self._send_message(self.s,self.GOAHEAD)
         
         namer = self._recieve_message(size=self.LARGESIZE)
@@ -311,20 +292,11 @@ class connection():
             password = self._hash(password)
         self._initiate_connection()
         self._send_message(self.s,self.CHECKLOGIN)
-        data = self._recieve_message()
-        if data != self.GOAHEAD:
-            self._error_handling(data)
-            return False
+        data = self._recieve_message(goahead=True)
         self._send_message(self.s,username)
-        data = self._recieve_message()
-        if data != self.GOAHEAD:
-            self._error_handling(data)
-            return False
+        data = self._recieve_message(goahead=True)
         self._send_message(self.s,password)
-        data = self._recieve_message()
-        if data != self.GOAHEAD:
-            self._error_handling(data)
-            return False
+        data = self._recieve_message(goahead=True)
         return True
 
     def _hash(self,string):
@@ -337,42 +309,25 @@ class connection():
 
         self._initiate_connection()
         self._send_message(self.s,self.UPDATEDATA)
-        data = self._recieve_message()
-        if data.strip() != self.GOAHEAD:
-            self._error_handling(data)
+        data = self._recieve_message(goahead=True)
         self._send_message(self.s,auth)
-        data = self._recieve_message()
-        if data.strip() != self.GOAHEAD:
-            self._error_handling(data)
-        
+        data = self._recieve_message(goahead=True)
         self._send_message(self.s,filename)
-        data = self._recieve_message()
-        if data.strip() != self.GOAHEAD:
-            self._error_handling(data)
+        data = self._recieve_message(goahead=True)
         self._send_message(self.s,new)
-        data = self._recieve_message()
-        if data.strip() != self.GOAHEAD:
-            self._error_handling(data)
+        data = self._recieve_message(goahead=True)
         self.s.close()
         return True
         
     def delete(self,filename):
         auth = self.authenticated_start()
-
         self._initiate_connection()
         self._send_message(self.s,self.DELETEDATA)
-        data = self._recieve_message()
-        if data.strip() != self.GOAHEAD:
-            self._error_handling(data)
+        data = self._recieve_message(goahead=True)
         self._send_message(self.s,auth)
-        data = self._recieve_message()
-        if data.strip() != self.GOAHEAD:
-            self._error_handling(data)
-        
+        data = self._recieve_message(goahead=True)
         self._send_message(self.s,filename)
-        data = self._recieve_message()
-        if data.strip() != self.GOAHEAD:
-            self._error_handling(data)
+        data = self._recieve_message(goahead=True)
         self.s.close()
         file = open(self.UPLOADS,"r")
         content = file.read()
@@ -393,14 +348,9 @@ class connection():
         auth = self.authenticated_start()
         self._initiate_connection()
         self._send_message(self.s,self.VIEWDATA)
-        data = self._recieve_message()
-        if data.strip() != self.GOAHEAD:
-            self._error_handling(data)
+        data = self._recieve_message(goahead=True)
         self._send_message(self.s,auth)
-        data = self._recieve_message()
-        if data.strip() != self.GOAHEAD:
-            self._error_handling(data)
-        
+        data = self._recieve_message(goahead=True)
         self._send_message(self.s,filename)
         data = self._recieve_message(size=self.LARGESIZE)
         try:
@@ -415,38 +365,24 @@ class connection():
         auth = self.authenticated_start()
         self._initiate_connection()
         self._send_message(self.s,self.SHARE)
-        data = self._recieve_message()
-        if data.strip() != self.GOAHEAD:
-            self._error_handling(data)
+        data = self._recieve_message(goahead=True)
         self._send_message(self.s,auth)
-        data = self._recieve_message()
-        if data.strip() != self.GOAHEAD:
-            self._error_handling(data)
+        data = self._recieve_message(goahead=True)
         self._send_message(self.s,user_to_share)
-        data = self._recieve_message()
-        if data.strip() != self.GOAHEAD:
-            self._error_handling(data)
+        data = self._recieve_message(goahead=True)
         self._send_message(self.s,filename)
-        data = self._recieve_message()
-        if data.strip() != self.GOAHEAD:
-            self._error_handling(data)
+        data = self._recieve_message(goahead=True)
         return True
 
     def get_ownership(self,filename):
         auth = self.authenticated_start()
         self._initiate_connection()
         self._send_message(self.s,self.GETOWNERSHIP)
-        data = self._recieve_message()
-        if data.strip() != self.GOAHEAD:
-            self._error_handling(data)
+        data = self._recieve_message(goahead=True)
         self._send_message(self.s,auth)
-        data = self._recieve_message()
-        if data.strip() != self.GOAHEAD:
-            self._error_handling(data)
+        data = self._recieve_message(goahead=True)
         self._send_message(self.s,filename)
-        data = self._recieve_message()
-        if data.strip() != self.GOAHEAD:
-            self._error_handling(data)
+        data = self._recieve_message(goahead=True)
         self._send_message(self.s,self.GOAHEAD)
         size = int(self._recieve_message())
         self._send_message(self.s,self.GOAHEAD)
@@ -462,9 +398,23 @@ class connection():
         pinger = new_time-current_time
         return pinger*1000
 
-    def send_user_message(self,message,recipient):
+    def send_user_message(self,message,recipient):#TODO add some sort of size limit
+        auth = self.authenticated_start()
         self._initiate_connection()
-    
+        self._send_message(self.s,self.SEND_USER_MESSAGE)
+        data = self._recieve_message(goahead=True)
+        self._send_message(self.s,auth)
+        data = self._recieve_message(goahead=True)
+        self._send_message(self.s,recipient)
+        self._recieve_message(goahead=True)
+        size = self._size(message)
+        size *= 1.2
+        self._send_message(self.s,size)
+        self._recieve_message(goahead=True)
+        self._send_message(self.s,message)
+        self._recieve_message(goahead=True)
+        return True
+        
 if __name__ == "__main__":      
     c = connection()
     file_test = True

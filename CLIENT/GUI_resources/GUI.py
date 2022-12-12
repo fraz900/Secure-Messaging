@@ -162,7 +162,10 @@ class GUI():
         top.grid_columnconfigure(0, weight=0)
         message = tk.StringVar()
         def send():
-            top.destroy()
+            content = message.get()
+            message.set("")
+            recipient = "tester"#TODO add textbox for this
+            self.c.send_user_message(content,recipient)
         def exiter():
             top.destroy()
             exit()

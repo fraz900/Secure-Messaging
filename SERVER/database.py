@@ -1,5 +1,6 @@
 import sqlite3
 import time
+import secrets
 ##def delete_table(table):
 ##    info_c.execute(f"DROP TABLE {table}")
 ##    info_conn.commit()
@@ -25,9 +26,10 @@ class info():
         self.info_c.execute(command)
 
         command = """CREATE TABLE IF NOT EXISTS Messages(
-                     id integer PRIMARY KEY,
+                     id string PRIMARY KEY,
                      sending_user string NOT NULL,
                      sent_time real,
+                     contents string,
                      recieving_user string NOT NULL,
                      FOREIGN KEY(sending_user) REFERENCES Users(username),
                      FOREIGN KEY(recieving_user) REFERENCES Users(username));"""
@@ -44,7 +46,7 @@ class info():
         self.timeout = timeout
         
     def __repr__(self):
-        self.info_c.execute("SELECT * FROM Users")
+        self.info_c.execute("SELECT * FROM Messages")
         rows = self.info_c.fetchall()
         for row in rows:
             print(row)
@@ -99,9 +101,31 @@ class info():
             return False
         else:
             return rows[0][0]
+    def cleanup(self,time_limit=None):
+        time_limit = self.timeout if time_limit is None else time_limit
+        current_time = time.time()
+        command = f"""DELETE FROM Auth_Codes WHERE
+                    ({current_time} - creation_time) > {time_limit}"""
+        self.info_c.execute(command)
+        self.info_conn.commit()
 
+    def add_message(self,author,recipient,contents):
+        current_time = time.time()
+        check = True
+        while check:
+            token = secrets.token_hex(32)
+            check = self.get_message_from_id(token)
+        self.info_c.execute(f"""INSERT INTO Messages(id,sending_user,sent_time,contents,recieving_user)
+                            VALUES ("{token}","{author}",{current_time},"{contents}","{recipient}");""")
+        self.info_conn.commit()
         
-
+    def get_message_from_id(self,token):
+        self.info_c.execute(f"""SELECT * FROM Messages WHERE id = "{token}";""")
+        rows = self.info_c.fetchall()
+        if len(rows) == 0:
+            return False
+        else:
+            return rows[0]
 class tokens():
     def __init__(self,time_limit=600):
         self.token_conn = sqlite3.connect("resources/tokens.db", check_same_thread=False)
@@ -161,9 +185,6 @@ class tokens():
         
 if __name__ == "__main__":
     i = info()
-    #i.add_user("test","check")
-    #i.add_auth_code("ahsgdjh","tester","19123234")
-    print(i.check_auth_token("ahsgdjh"))
     print(i)
 
 
