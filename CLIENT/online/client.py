@@ -35,21 +35,18 @@ class connection():
         self.WARNINGS = {"400":"client error, incorrect command","401":"authentication error, failure to authenticate","404":"resource not found","500":"Data not allowed","501":"invalid resource"}
         self.MATCHMAKINGERROR = "100"
         #other
-        try:
-            file = open("details.txt","r")
-            content = file.read()
-            file.close()
-            content = content.split(",")
-            self.REFRESH_CODE = content[1]
-            self.USER_NAME = content[0]
-        except:
-            self.REFRESH_CODE = None
-            self.USER_NAME = None
         self.KEYTIMEOUT = 3600 #seconds, one hour
         self.AUTHCODE = None
         self.LARGESIZE = 20000
         self.UPLOADS = "uploads.txt"
         self.u = user()
+        check = self.u.details()
+        if not check:
+            self.REFRESH_CODE = None
+            self.USER_NAME = None
+        else:
+            self.REFRESH_CODE = check[1]
+            self.USER_NAME = check[0]
 
     def print1(self,message):
         if self.DEBUG:
@@ -174,6 +171,12 @@ class connection():
         commands = [self.REFRESHAUTH_COMMAND,self.REFRESH_CODE]
         self._initiate_connection()
         self._send_message(self.s,self.REFRESHAUTH_COMMAND)
+        data = self._recieve_message()
+        data = data.strip()
+        if data != self.GOAHEAD:
+            self._error_handling(data)
+            return False
+        self._send_message(self.s,self.USER_NAME)
         data = self._recieve_message()
         data = data.strip()
         if data != self.GOAHEAD:

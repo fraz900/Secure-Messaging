@@ -68,19 +68,19 @@ class GUI():
         def submit():
             name=name_var.get()
             password=passw_var.get()
-            #try:
-            check = self.c.login(name,password)
-            if check:
-                self.u.create(name,self.c._hash(password))
-                top.destroy()
-                self.main()
-            #except Exception as e:
-                #login_error.config(text="username or password incorrect",fg="red")
+            try:
+                check = self.c.login(name,password)
+                if check:
+                    self.u.create(name,self.c._hash(password))
+                    top.destroy()
+                    self.main()
+            except Exception as e:
+                login_error.config(text="username or password incorrect",fg="red")
             end_loading()
             
             name_var.set("")
             passw_var.set("")
-        def register():
+        def register():#TODO add username taken error
             name=name_var.get()
             password=passw_var.get()
             check = self.c.create_account(name,password)

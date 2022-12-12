@@ -1,39 +1,64 @@
 import sqlite3
 import time
 
-PATH = "resources/info.db"
-info_conn = sqlite3.connect(PATH, check_same_thread=False)
-info_c = info_conn.cursor()
-def create_tables_info():
-    command = """CREATE TABLE IF NOT EXISTS Users (
-username string PRIMARY KEY,
-password string NOT NULL,
-account_creation_time text NOT NULL);"""
-    c.execute(command)
 
-    command = """CREATE TABLE IF NOT EXISTS Logins(
-IP_address string,
-time text,
-username string,
-FOREIGN KEY(username) REFERENCES Users(username)
-PRIMARY KEY(IP_address,time)); 
-"""
-    c.execute(command)
+class info():
+    def __init__(self):
+        PATH = "resources/info.db"
+        self.info_conn = sqlite3.connect(PATH, check_same_thread=False)
+        self.info_c = self.info_conn.cursor()
+        command = """CREATE TABLE IF NOT EXISTS Users (
+                    username string PRIMARY KEY,
+                    password string NOT NULL,
+                    account_creation_time real NOT NULL);"""
+        self.info_c.execute(command)
 
-    command = """CREATE TABLE IF NOT EXISTS Messages(
-id integer PRIMARY KEY,
-sending_user string NOT NULL,
-sent_time text,
-recieving_user string NOT NULL,
-FOREIGN KEY(sending_user) REFERENCES Users(username),
-FOREIGN KEY(recieving_user) REFERENCES Users(username));"""
-    c.execute(command)
-  
-def add_user(uname,pword,time):
-    info_c.execute(f"""INSERT INTO Users (username,password,account_creation_time)
-    VALUES ("{uname}","{pword}","{time}");""")
-    info_conn.commit()
+        command = """CREATE TABLE IF NOT EXISTS Logins(
+                    IP_address string,
+                    time real,
+                    username string,
+                    FOREIGN KEY(username) REFERENCES Users(username)
+                    PRIMARY KEY(IP_address,time)); 
+                    """
+        self.info_c.execute(command)
 
+        command = """CREATE TABLE IF NOT EXISTS Messages(
+                     id integer PRIMARY KEY,
+                     sending_user string NOT NULL,
+                     sent_time real,
+                     recieving_user string NOT NULL,
+                     FOREIGN KEY(sending_user) REFERENCES Users(username),
+                     FOREIGN KEY(recieving_user) REFERENCES Users(username));"""
+        self.info_c.execute(command)
+
+    def __repr__(self):
+        self.info_c.execute("SELECT * FROM Users")
+        rows = self.info_c.fetchall()
+        for row in rows:
+            print(row)
+        return ""
+
+    def add_user(self,uname,pword):
+        current_time = time.time()
+        if not self.check_user(uname):
+            self.info_c.execute(f"""INSERT INTO Users (username,password,account_creation_time)
+            VALUES ("{uname}","{pword}",{current_time});""")
+            self.info_conn.commit()
+            return True
+        else:
+            return False
+
+    def delete_user(self): #TODO
+        None
+
+    def check_user(self,username): #returns tuple of format (username,password,creation_time)
+        command = f"""SELECT * FROM Users WHERE username="{username}";"""
+        self.info_c.execute(command)
+        rows = self.info_c.fetchall()
+        if len(rows) == 0:
+            return False
+        else:
+            return rows[0]
 def delete_table(table):
     info_c.execute(f"DROP TABLE {table}")
     info_conn.commit()
@@ -96,16 +121,10 @@ class tokens():
     def close(self):
         self.token_c.close()
         self.token_conn.close()
+        
 if __name__ == "__main__":
-    t = tokens()
-    #t.add_key_token(2134235,"broski")
-    print(t)
-    #t.cleanup()
-    print(t.check_token("broski2"))
-    print(t.check_token("babooy"))
-    t.close()
-    #time.sleep(5)
-    #t.cleanup()
-    #print(t)
+    i = info()
+    #i.add_user("test","check")
+    print(i)
 
 

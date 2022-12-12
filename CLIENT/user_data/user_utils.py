@@ -30,8 +30,17 @@ class user():#stores user info and settings
         file = open("user_data/user_account.txt","w")
         file.write(entry)
         file.close()
+        self.exists = True
+        self.username = uname
+        self.pass_hash = pass_hash
         return True
     
+    def details(self):
+        if self.exists:
+            return self.username,self.pass_hash
+        else:
+            return False
+        
     def check_key_token(self):
         try:
             file = open("user_data/key_token.txt","r")

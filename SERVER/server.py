@@ -6,7 +6,7 @@ import threading
 import os
 import sys
 import time
-from database import tokens
+from database import tokens,info
 from encryption import DH,AES
 class connection():
     def __init__(self):
@@ -22,7 +22,6 @@ class connection():
         self.INVALID = "501"
         #files
         self.AUTHCODES = "resources/active_auth_codes.txt"
-        self.USERACCOUNTS = "resources/user_accounts.txt"
         self.MANIFEST = "manifest.txt"
         #commands
         self.REFRESHAUTH = "rac"
@@ -44,6 +43,7 @@ class connection():
         self.KEYTIMEOUT = 3600 #seconds, one hour
         self.TIMEOUT = 20
         self.t = tokens()
+        self.i = info()
         
     def start(self)->None:
         print("online")
@@ -184,25 +184,20 @@ class connection():
         return True
     def refresh_token(self,user):
         self._send_message(user,self.GOAHEAD)
+        username = self._recieve_message(user)
+        check = self.i.check_user(username)
+        if not check:
+            self._send_message(user,self.NOTFOUND)
+            user.close()
+            return False
+        self._send_message(user,self.GOAHEAD)
+        pword = check[1]
+        person = check[0]
         refresh_code = self._recieve_message(user,size=self.LARGESIZE)
         if not refresh_code:
             return
-        file = open(self.USERACCOUNTS,"r")
-        codes = file.read()
-        file.close()
-        codes = codes.split("\n")
-        passed = False
-        for code in codes:
-            code = code.split(",")
-            try:
-                acode = code[1]
-                if acode == refresh_code:
-                    person = code[0]
-                    passed = True
-            except:
-                None
 
-        if passed:
+        if pword == refresh_code:#TODO migrate to database architecture
             auth_code = secrets.token_hex(32)
             self._send_message(user,auth_code)
             user.close()
@@ -215,7 +210,7 @@ class connection():
             self._send_message(user,self.AUTHERROR)
             user.close()
 
-    def check_auth(self,auth_code):
+    def check_auth(self,auth_code):#TODO migrate to database architecture
         file = open(self.AUTHCODES,"r")
         content = file.read()
         file.close()
@@ -477,26 +472,18 @@ class connection():
         file.close()
         self._send_message(user,content)
         user.close()
-    def login(self,user,ip): #throws an error but works?
+    def login(self,user,ip):
         self._send_message(user,self.GOAHEAD)
         username = self._recieve_message(user)
-        file = open(self.USERACCOUNTS,"r")
-        content = file.read()
-        content = content.split("\n")
-        found = False
-        for line in content:
-            check = line.split(",")
-            if check[0] == username:
-                found = True
-                spassword = check[1]
-        if not found:
+        check = self.i.check_user(username)
+        if not check:
             self._send_message(user,self.NOTFOUND)
             self.log(ip,f"login {username} not found")
             user.close()
             return False
         self._send_message(user,self.GOAHEAD)
         password = self._recieve_message(user,size=self.LARGESIZE)
-        if password == spassword:
+        if password == check[1]:
             self._send_message(user,self.GOAHEAD)
             self.log(ip,f"login {username} correct")
             user.close()
@@ -511,15 +498,8 @@ class connection():
             user.close()
             return False
         user_to_share = self._recieve_message(user,size=self.LARGESIZE)
-        file = open(self.USERACCOUNTS,"r")
-        content = file.read()
-        content = content.split("\n")
-        found = False
-        for line in content:
-            check = line.split(",")
-            if check[0] == user_to_share:
-                found = True
-        if not found:
+        check = self.i.check_user(user_to_share)
+        if not check:
             self._send_message(user,self.NOTFOUND)
             user.close()
             return False
@@ -567,10 +547,6 @@ class connection():
                     file.write(entry)
                     file.close()
             x += 1
-        if not found:
-            self._send_message(user,self.NOTFOUND)
-            user.close()
-            return False
         os.chdir(os.path.split(__file__)[0])
         os.chdir("data")
         os.chdir(username)
@@ -588,6 +564,7 @@ class connection():
         file.close()
         self._send_message(user,self.GOAHEAD)
         user.close()
+        os.chdir(os.path.split(__file__)[0])
         return True
         
     def create_account(self,user):
@@ -605,21 +582,12 @@ class connection():
             if counter > 3:
                 user.close()
                 return False
-        file = open(self.USERACCOUNTS,"r")
-        content = file.read()
-        file.close()
-        content = content.split("\n")
-        for line in content:
-            line = line.split(",")
-            name = line[0]
-            if name == username:
-                self._send_message(user,self.NOTALLOWED)
-                return
+        if self.i.check_user(username):
+            self._send_message(user,self.NOTALLOWED)
+            return
         self._send_message(user,self.GOAHEAD)
-        enter = f"{username},{password}\n"
-        file = open(self.USERACCOUNTS,"a")
-        file.write(enter)
-        file.close()
+        user.close()
+        self.i.add_user(username,password)
         os.chdir("data")
         os.mkdir(username)
         os.chdir(username)
