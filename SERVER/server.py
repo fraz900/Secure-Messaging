@@ -43,7 +43,7 @@ class connection():
         self.KEYTIMEOUT = 3600 #seconds, one hour
         self.TIMEOUT = 20
         self.t = tokens()
-        self.i = info()
+        self.i = info(timeout=self.KEYTIMEOUT)
         
     def start(self)->None:
         print("online")
@@ -118,7 +118,7 @@ class connection():
         command = command.strip()
         match command:#encrypted commands
             case self.REFRESHAUTH:
-                self.refresh_token(c)
+                self.refresh_token(c,ip)
             case self.CREATEACCOUNT:
                 self.create_account(c)
             case self.UPLOADDATA:
@@ -182,7 +182,7 @@ class connection():
         self._send_message(user,self.GOAHEAD,setup=True)
         user.close()
         return True
-    def refresh_token(self,user):
+    def refresh_token(self,user,ip):
         self._send_message(user,self.GOAHEAD)
         username = self._recieve_message(user)
         check = self.i.check_user(username)
@@ -197,36 +197,21 @@ class connection():
         if not refresh_code:
             return
 
-        if pword == refresh_code:#TODO migrate to database architecture
-            auth_code = secrets.token_hex(32)
+        if pword == refresh_code:
+            self.i.log_login(ip,person)
+            check = False
+            while not check:
+                auth_code = secrets.token_hex(32)
+                check = self.i.add_auth_code(auth_code,person,ip)
             self._send_message(user,auth_code)
             user.close()
-            current_time = time.time()
-            file = open(self.AUTHCODES,"a")
-            addition = f"{person},{auth_code},{current_time}\n"
-            file.write(addition)
-            file.close()
         else:
             self._send_message(user,self.AUTHERROR)
             user.close()
 
-    def check_auth(self,auth_code):#TODO migrate to database architecture
-        file = open(self.AUTHCODES,"r")
-        content = file.read()
-        file.close()
-        content = content.split("\n")
-        for line in content:
-            if line != "":
-                line = line.split(",")
-                check = line[1]
-                if auth_code == check:
-                    time_check = line[2]
-                    current_time = time.time()
-                    time_check = float(time_check)
-                    if (current_time - time_check) < self.KEYTIMEOUT:
-                        return line[0]
-                
-        return False
+    def check_auth(self,auth_code):
+        return(i.check_auth_token(auth_code))
+    
     def clear_codes(self,file_name,time_limit):
         file = open(file_name,"r")
         content = file.read()
@@ -485,6 +470,7 @@ class connection():
         password = self._recieve_message(user,size=self.LARGESIZE)
         if password == check[1]:
             self._send_message(user,self.GOAHEAD)
+            self.i.log_login(ip,username)
             self.log(ip,f"login {username} correct")
             user.close()
             return True

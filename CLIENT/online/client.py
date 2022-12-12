@@ -248,7 +248,7 @@ class connection():
             auth = self.AUTHCODE
             return auth
     
-    def upload(self,data_to_send,name,shared=False,recurse=False):
+    def upload(self,data_to_send,name,shared=False,recurse=False):#TODO add a filetype descriptor?
         shared_state = "singular"
         if shared:
             shared_state = "shared"
@@ -485,32 +485,6 @@ if __name__ == "__main__":
         print(c.get_ownership(name))
         time.sleep(1)
         c.delete(name)
-    if match_test:
-        print("matchmaking start")
-        check = c.matchmaking()
-        print("matchmaking")
-        if check == 0:
-            print("matchmaking error")
-            exit()
-        checking = False
-        while not checking:
-            print("checking")
-            checking = c.check_matchmaking()
-            time.sleep(2)
-            print("checked")
-        match_name = checking
-        print("starting")
-        checker = c.start_game(match_name)
-        print("started")
-        if not checker:
-            print("start game error")
-            exit()
-        token = checker
-        print(c.get_scores(match_name))
-        time.sleep(1)
-        c.upload_score(match_name,token,20)
-        time.sleep(1)
-        print(c.get_scores(match_name))
     if account_test:
         c.create_account("account","password")
         c.get_auth_token()
