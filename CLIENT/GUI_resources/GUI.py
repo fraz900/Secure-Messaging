@@ -169,6 +169,11 @@ class GUI():
         def exiter():
             top.destroy()
             exit()
+        def messages():#TODO make some GUI shit FML (and store it)
+            content = self.c.check_messages()
+            for message in content:
+                print()
+                print(message)
         frame = tk.Frame(top,width=400,height=100,bg="red")
         frame.grid(row=1,column=0, sticky="n")
         
@@ -181,6 +186,8 @@ class GUI():
         exit_button = tk.Button(frame,text="exit",command=exiter)
         exit_button.grid(row=2,column=1)
 
+        check_message_button = tk.Button(frame,text="messages",command=messages)#TESTING ONLY TODO
+        check_message_button.grid(row=3,column=1)
         
         top.resizable(True,True)
         top.mainloop()

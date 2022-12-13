@@ -6,7 +6,7 @@ try:
     from online.encryption import DH,AES
 except:
     from encryption import DH,AES
-from user_data.user_utils import user
+from user_data.user_utils import user,tokens_storage,message_store
 class connection():
     def __init__(self,IP="127.0.0.1",PORT=12345,debug=True):
         self.DEBUG = debug
@@ -29,6 +29,7 @@ class connection():
         self.PING = "pi"
         self.SEND_USER_MESSAGE = "sm"
         self.USE_KEY = "us"
+        self.CHECK_MESSAGES = "cm"
         #responses
         self.GOAHEAD = "200"
         self.AUTHERROR = "401"
@@ -40,6 +41,7 @@ class connection():
         self.LARGESIZE = 20000
         self.UPLOADS = "uploads.txt"
         self.u = user()
+        self.t = tokens_storage()
         check = self.u.details()
         if not check:
             self.REFRESH_CODE = None
@@ -63,6 +65,8 @@ class connection():
             sock.sendall(encrypted_message.encode())
             
     def _recieve_message(self,size=1024,setup=False,goahead=False):
+        if size < 1024:
+            size = 1024
         data = self.s.recv(size)
         data = data.decode()
         if setup:
@@ -98,7 +102,7 @@ class connection():
         data = self._recieve_message(setup=True,goahead=True)
 
         if encrypted:
-            check = self.u.check_key_token()
+            check = self.t.check_key_token()
             if check:
                 token,key = check
                 self._send_message(self.s,self.USE_KEY,setup=True)
@@ -108,7 +112,7 @@ class connection():
                 self._send_message(self.s,token,setup=True)
                 accepted = self._recieve_message(setup=True)
                 if accepted == self.AUTHERROR:
-                    self.u.delete("key")
+                    self.t.delete("key")
                     self._initiate_connection()
                     return 
                 elif accepted != self.GOAHEAD:
@@ -136,7 +140,7 @@ class connection():
                 self._send_message(self.s,self.GOAHEAD)
                 try:
                     key_toke = self._recieve_message(size=self.LARGESIZE)
-                    self.u.store_key_token(self.key,key_toke)
+                    self.t.store_key_token(self.key,key_toke)
                     return
                 except Exception as e:
                     self.print1(e)
@@ -147,13 +151,9 @@ class connection():
     def get_auth_token(self):
         current_time = time.time()
         try:
-            file = open("code.txt","r")
-            content = file.read()
-            file.close()
-            content = content.split(",")
-            check_time = float(content[0])
+            check_time,auth = self.t.check_auth_code()
             if (current_time-check_time) < self.KEYTIMEOUT:
-                self.AUTHCODE = content[1]
+                self.AUTHCODE = auth
                 self._initiate_connection()
                 self._send_message(self.s,self.CHECKAUTH_COMMAND)
                 data = self._recieve_message()
@@ -180,10 +180,7 @@ class connection():
             self._error_handling(data)
         except KeyError:
             self.AUTHCODE = data
-            file = open("code.txt","w")
-            entry = f"{current_time},{data}"
-            file.write(entry)
-            file.close()
+            self.t.store_auth_code(self.AUTHCODE)
             self.s.close()
             self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             return True
@@ -297,6 +294,8 @@ class connection():
         data = self._recieve_message(goahead=True)
         self._send_message(self.s,password)
         data = self._recieve_message(goahead=True)
+        self.USER_NAME = username
+        self.REFRESH_CODE = password
         return True
 
     def _hash(self,string):
@@ -414,7 +413,36 @@ class connection():
         self._send_message(self.s,message)
         self._recieve_message(goahead=True)
         return True
+
+    def check_messages(self):#TODO (somewhere) add message storage lmao
+        auth = self.authenticated_start()
+        self._initiate_connection()
+        self._send_message(self.s,self.CHECK_MESSAGES)
+        self._recieve_message(goahead=True)
+        self._send_message(self.s,auth)
+        self._recieve_message(goahead=True)
+
+        self._send_message(self.s,self.GOAHEAD)
+        num_of_messages = int(self._recieve_message())
         
+        messages = []
+        for x in range(num_of_messages):
+            self._send_message(self.s,self.GOAHEAD)
+            author = self._recieve_message()
+            self._send_message(self.s,self.GOAHEAD)
+            size = int(self._recieve_message())
+            self._send_message(self.s,self.GOAHEAD)
+            content = self._recieve_message(size=size)
+            self._send_message(self.s,self.GOAHEAD)
+            send_time = self._recieve_message()
+            self._send_message(self.s,self.GOAHEAD)
+            token = self._recieve_message(size=self.LARGESIZE)
+            combined = message_store(author,content,send_time,token)
+            messages.append(combined)
+        self._send_message(self.s,self.GOAHEAD)
+        if num_of_messages == 0:
+            return False
+        return messages
 if __name__ == "__main__":      
     c = connection()
     file_test = True

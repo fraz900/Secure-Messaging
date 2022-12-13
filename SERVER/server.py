@@ -37,6 +37,7 @@ class connection():
         self.PING = "pi"
         self.SEND_USER_MESSAGE = "sm"
         self.USE_KEY = "us"
+        self.CHECK_MESSAGES = "cm"
         #other
         self.LARGESIZE = 20000
         self.KEYTIMEOUT = 3600 #seconds, one hour
@@ -138,6 +139,8 @@ class connection():
                 self.login(c,ip)
             case self.SEND_USER_MESSAGE:
                 self.send_user_message(c)
+            case self.CHECK_MESSAGES:
+                self.check_messages(c)
             case _:
                 print("command",command)
                 self._send_message(c,self.FAILURE)
@@ -645,8 +648,34 @@ class connection():
         self.i.add_message(username,recipient,message)
         return True
 
-    def check_messages(self):#TODO
-        None
+    def check_messages(self,c):#TODO add record of time of access and prevent requests from more recently
+        username = self._authenticate(c)
+        if not username:
+            c.close()
+            return False
+        self._recieve_message(c)
+        messages = self.i.get_messages_from_user(username,0)#TODO CHANGE TIME LIMIT
+        num_of_messages = len(messages)
+        self._send_message(c,num_of_messages)
+        for message in messages:
+            token = message[0]
+            sender = message[1]
+            sent_time = message[2]
+            content = message[3]
+            size = self._size(content)
+            self._recieve_message(c)
+            self._send_message(c,sender)
+            self._recieve_message(c)
+            self._send_message(c,size)
+            self._recieve_message(c)
+            self._send_message(c,content)
+            self._recieve_message(c)
+            self._send_message(c,sent_time)
+            self._recieve_message(c)
+            self._send_message(c,token)
+        self._recieve_message(c)
+        return True
+            
              
 if __name__ == "__main__":
     a = connection()

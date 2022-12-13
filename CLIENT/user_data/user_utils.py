@@ -8,6 +8,8 @@
 
 import sqlite3
 import os
+import time
+from dataclasses import dataclass
 
 class user():#stores user info and settings 
     def __init__(self):
@@ -41,6 +43,16 @@ class user():#stores user info and settings
         else:
             return False
         
+    def userExists(self):
+        return self.exists
+    
+    def delete(self,file):
+        matcher = {"account":"user_data/user_account.txt"}
+        os.remove(matcher[file])
+
+class tokens_storage():
+    def __init__(self):
+        None
     def check_key_token(self):
         try:
             file = open("user_data/key_token.txt","r")
@@ -60,17 +72,40 @@ class user():#stores user info and settings
         file.close()
         return True
 
-    def userExists(self):
-        return self.exists
+    def store_auth_code(self,code):
+        current_time = time.time()
+        file = open("user_data/auth_code.txt","w")
+        entry = f"{current_time},{code}"
+        file.write(entry)
+        file.close()
+        return True
+        
+    def check_auth_code(self):
+        file = open("user_data/auth_code.txt","r")
+        content = file.read()
+        file.close()
+        content = content.split(",")
+        check_time = float(content[0])
+        code = content[1]
+        return check_time,code
+
     def delete(self,file):
-        matcher = {"account":"user_data/user_account.txt","key":"user_data/key_token.txt"}
+        matcher = {"key":"user_data/key_token.txt"}
         os.remove(matcher[file])
 
 
+@dataclass()
+class message_store:
+    author: str
+    content: str
+    send_time: float
+    token: str
+    
 #database stuff (make object pls)
 def store_message(message):
     None
 
 def create_message_database():
     None
-    
+
+

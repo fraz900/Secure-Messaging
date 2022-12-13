@@ -62,8 +62,9 @@ class info():
         else:
             return False
 
-    def delete_user(self): #TODO
-        None
+    def delete_user(self,username): #TODO
+        self.info_c.execute(f"""DELETE FROM Users WHERE username="{username}";""")
+        self.info_conn.comit()
 
     def check_user(self,username): #returns tuple of format (username,password,creation_time)
         command = f"""SELECT * FROM Users WHERE username="{username}";"""
@@ -126,6 +127,15 @@ class info():
             return False
         else:
             return rows[0]
+    def get_messages_from_user(self,username,time_limit):
+        current_time = time.time()
+        command = f"""SELECT * FROM Messages WHERE recieving_user = "{username}" AND sent_time > {time_limit};"""
+        self.info_c.execute(command)
+        rows = self.info_c.fetchall()
+        if len(rows) == 0:
+            return False
+        else:
+            return rows
 class tokens():
     def __init__(self,time_limit=600):
         self.token_conn = sqlite3.connect("resources/tokens.db", check_same_thread=False)
@@ -185,6 +195,7 @@ class tokens():
         
 if __name__ == "__main__":
     i = info()
-    print(i)
+    print(i.get_messages_from_user("tester",0))
+    #print(i)
 
 
