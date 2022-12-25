@@ -6,7 +6,7 @@ try:
     from online.encryption import DH,AES
 except:
     from encryption import DH,AES
-from user_data.user_utils import user,tokens_storage,message_store
+from user_data.user_utils import user,tokens_storage,message_store,messages
 class connection():
     def __init__(self,IP="127.0.0.1",PORT=12345,debug=True):
         self.DEBUG = debug
@@ -42,6 +42,7 @@ class connection():
         self.UPLOADS = "uploads.txt"
         self.u = user()
         self.t = tokens_storage()
+        self.m = messages()
         check = self.u.details()
         if not check:
             self.REFRESH_CODE = None
@@ -425,7 +426,7 @@ class connection():
         self._send_message(self.s,self.GOAHEAD)
         num_of_messages = int(self._recieve_message())
         
-        messages = []
+        message_list = []
         for x in range(num_of_messages):
             self._send_message(self.s,self.GOAHEAD)
             author = self._recieve_message()
@@ -438,11 +439,12 @@ class connection():
             self._send_message(self.s,self.GOAHEAD)
             token = self._recieve_message(size=self.LARGESIZE)
             combined = message_store(author,content,send_time,token)
-            messages.append(combined)
+            message_list.append(combined)
         self._send_message(self.s,self.GOAHEAD)
         if num_of_messages == 0:
             return False
-        return messages
+        self.m.store_messages(message_list)
+        return message_list
 if __name__ == "__main__":      
     c = connection()
     file_test = True

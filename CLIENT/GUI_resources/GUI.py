@@ -46,7 +46,6 @@ class GUI():
         top.mainloop()
         
     def login(self):
-        
         c = connection()
         top = tk.Tk()
         top.title("login")
@@ -169,11 +168,13 @@ class GUI():
         def exiter():
             top.destroy()
             exit()
-        def messages():#TODO make some GUI shit FML (and store it)
+        def messages():#TODO make some GUI shit FML
             content = self.c.check_messages()
             for message in content:
                 print()
                 print(message)
+        def add():
+            self.add_friend_window(top)
         frame = tk.Frame(top,width=400,height=100,bg="red")
         frame.grid(row=1,column=0, sticky="n")
         
@@ -188,10 +189,18 @@ class GUI():
 
         check_message_button = tk.Button(frame,text="messages",command=messages)#TESTING ONLY TODO
         check_message_button.grid(row=3,column=1)
+        #"friend" here is used to indicate someone you are communicating with, there is no "friending" system
+        add_friend_button = tk.Button(frame,text="New Chat",command=add)
+        add_friend_button.grid(row=4,column=1)
         
         top.resizable(True,True)
         top.mainloop()
-        
+
+    def add_friend_window(self,top):#TODO add networking to check user exists, add to a list of "chatters"
+        topper = tk.Toplevel(top)
+        topper.geometry("750x250")
+        topper.title("Start chat")
+
 if __name__ == "__main__":
     g = GUI()
     g.main()

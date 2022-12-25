@@ -101,11 +101,50 @@ class message_store:
     send_time: float
     token: str
     
-#database stuff (make object pls)
-def store_message(message):
-    None
+class messages():
+    def __init__(self):
+        PATH = "user_data/messages.db"
+        self.conn = sqlite3.connect(PATH)
+        self.c = self.conn.cursor()
+        command = """CREATE TABLE IF NOT EXISTS Messages(
+                     id string PRIMARY KEY,
+                     author string NOT NULL,
+                     sent_time real,
+                     contents string);"""
+        self.c.execute(command)
 
-def create_message_database():
-    None
+    def store_message(self,message):
+        if not self.get_message(message.id):
+            self.c.execute(f"""INSERT INTO Messages (id,author,sent_time,contents)
+                            VALUES ("{message.token}","{message.author}",{message.send_time},"{message.content}");""")
+            self.conn.commit()
+        else:
+            return False
+
+    def store_messages(self,messages):
+        for message in messages:
+            self.store_message(message)
+            
+    def get_messages(self,user):
+        self.c.execute(f"""SELECT * FROM Messages WHERE user="{user}";""")
+        rows = self.c.fetchall()
+        messages = []
+        for row in rows:
+            messages.append(message_store(row[1],row[3],row[2],row[0]))
+        return messages
+
+    def get_message(self,token):
+        self.c.execute(f"""SELECT * FROM Messages WHERE id="{token}";""")
+        rows = self.c.fetchall()
+        if len(rows) == 0:
+            return False
+        return rows[0]
+    def get_users(self):
+        self.c.execute(f"SELECT DISTINCT author FROM Messages")
+        results = self.c.fetchall()
+        return results
+
+    def delete_message(self,identifier):#TODO
+        None
 
 
