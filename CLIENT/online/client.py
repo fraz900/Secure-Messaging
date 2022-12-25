@@ -408,7 +408,9 @@ class connection():
         data = self._recieve_message(goahead=True)
         self._send_message(self.s,recipient)
         self._recieve_message(goahead=True)
-        size = self._size(message)
+        a = AES(message)
+        new_data = a.encrypt(self.key)
+        size = self._size(new_data)
         size *= 1.2
         self._send_message(self.s,size)
         self._recieve_message(goahead=True)
