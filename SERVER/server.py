@@ -38,6 +38,7 @@ class connection():
         self.SEND_USER_MESSAGE = "sm"
         self.USE_KEY = "us"
         self.CHECK_MESSAGES = "cm"
+        self.CHECK_USER = "cu"
         #other
         self.LARGESIZE = 20000
         self.KEYTIMEOUT = 3600 #seconds, one hour
@@ -141,6 +142,8 @@ class connection():
                 self.send_user_message(c)
             case self.CHECK_MESSAGES:
                 self.check_messages(c)
+            case self.CHECK_USER:
+                self.check_user(c)
             case _:
                 print("command",command)
                 self._send_message(c,self.FAILURE)
@@ -648,13 +651,19 @@ class connection():
         self.i.add_message(username,recipient,message)
         return True
 
-    def check_messages(self,c):#TODO add record of time of access and prevent requests from more recently
+    def check_messages(self,c):
         username = self._authenticate(c)
         if not username:
             c.close()
             return False
         self._recieve_message(c)
-        messages = self.i.get_messages_from_user(username,0)#TODO CHANGE TIME LIMIT
+        self._send_message(c,self.GOAHEAD)
+        time_limit = float(self._recieve_message(c))
+        messages = self.i.get_messages_from_user(username,time_limit)
+        if not messages:
+            self._send_message(c,0)
+            c.close()
+            return False
         num_of_messages = len(messages)
         self._send_message(c,num_of_messages)
         for message in messages:
@@ -676,7 +685,16 @@ class connection():
         self._recieve_message(c)
         return True
             
-             
+    def check_user(self,c):
+        self._send_message(c,self.GOAHEAD)
+        username = self._recieve_message(c)
+        check = self.i.check_user(username)
+        if not check:
+            self._send_message(c,self.NOTFOUND)
+            c.close()
+            return False
+        self._send_message(c,self.GOAHEAD)
+        return True
 if __name__ == "__main__":
     a = connection()
     a.monitor_auth(3600)

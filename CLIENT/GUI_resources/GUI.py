@@ -1,17 +1,19 @@
 import tkinter as tk
 from PIL import Image, ImageTk
 from online.client import *
-from user_data.user_utils import user
+from user_data.user_utils import user,messages
 import os
 import time
 import threading
 import ctypes
+import datetime
 
 class GUI():
 
     def __init__(self):
         self.c = connection()
         self.u = user()
+        self.m = messages()
         user32 = ctypes.windll.user32
         self.resolution = user32.GetSystemMetrics(0),user32.GetSystemMetrics(1)
         
@@ -168,38 +170,90 @@ class GUI():
         def exiter():
             top.destroy()
             exit()
-        def messages():#TODO make some GUI shit FML
-            content = self.c.check_messages()
-            for message in content:
-                print()
-                print(message)
+        def messages():
+            message_box.delete(0,(message_box.size()-1))
+            
+            try:
+                friend_num = friends_box.curselection()[0]
+                friend = friends_box.get(friend_num)
+            except:
+                None#TODO add some sort of error (invalid selection)
+            messages = self.m.get_messages(friend)
+            count = 0
+            for message in messages:
+                message_box.insert(count,f"{message.author}: {message.content} <{self.unix_to_normal_time(message.send_time)}>")
+                count += 1
         def add():
-            self.add_friend_window(top)
+            self.add_friend_window(top,friends_box)
         frame = tk.Frame(top,width=400,height=100,bg="red")
         frame.grid(row=1,column=0, sticky="n")
         
         message_entry = tk.Entry(frame,textvariable = message, font=('calibre',10,'normal'))
         message_entry.grid(row=1,column=0)
         
-        send_button = tk.Button(frame,text = "send", command = send)
-        send_button.grid(row=1,column=1,padx=10,pady=10)
+        send_button = tk.Button(frame,text = "Send Message", command = send)
+        send_button.grid(row=1,column=1)
 
         exit_button = tk.Button(frame,text="exit",command=exiter)
-        exit_button.grid(row=2,column=1)
+        exit_button.grid(row=4,column=1)
 
-        check_message_button = tk.Button(frame,text="messages",command=messages)#TESTING ONLY TODO
-        check_message_button.grid(row=3,column=1)
+        check_message_button = tk.Button(frame,text="View Messages",command=messages)
+        check_message_button.grid(row=2,column=1)
+
         #"friend" here is used to indicate someone you are communicating with, there is no "friending" system
         add_friend_button = tk.Button(frame,text="New Chat",command=add)
-        add_friend_button.grid(row=4,column=1)
+        add_friend_button.grid(row=3,column=1)
+
+        friends_box = tk.Listbox(frame,selectmode = "single")
+        friends = self.m.get_users()
+        count = 1
+        for friend in friends:
+            friend = friend[0]
+            friends_box.insert(count,friend)
+            count += 1
+        friends_box.grid(row=5,column=0)
+
+        message_box = tk.Listbox(top,selectmode="single",width=100)
+        message_box.grid(row=1,column=1,sticky="nsew")
+        
+        self.c.check_messages()
         
         top.resizable(True,True)
         top.mainloop()
 
-    def add_friend_window(self,top):#TODO add networking to check user exists, add to a list of "chatters"
+    def add_friend_window(self,top,friends_box):#TODO add networking to check user exists, add to a list of "chatters"
         topper = tk.Toplevel(top)
         topper.geometry("750x250")
         topper.title("Start chat")
+        name = tk.StringVar()
+        def check():
+            uname = name.get()
+            name.set("")
+            if uname == "":
+                error_lbl.configure(text="Please enter a username")
+                return False
+            if self.c.check_user(uname):
+                friends_box.insert((friends_box.size()-1),uname)
+                topper.destroy()
+            else:
+                error_lbl.configure(text="Could not find user")
+            
+        lbl = tk.Label(topper,text="Enter the username of the person you wish to chat to:" ,font=('calibre',10, 'bold'))
+        lbl.grid(row=0,column=1)
+
+        entry_box = tk.Entry(topper,textvariable=name,font=('calibre',10,'normal'))
+        entry_box.grid(row=1,column=1)
+
+        submit_button = tk.Button(topper,text="Start Chat",command=check)
+        submit_button.grid(row=2,column=1)
+
+        error_lbl = tk.Label(topper,text="" ,font=('calibre',10, 'bold'),fg="red")
+        error_lbl.grid(row=3,column=1)
+        
+    def unix_to_normal_time(self,time):
+        new = datetime.datetime.fromtimestamp(time)
+        timer = new.strftime("%H:%M %d/%m/%Y")
+        return timer
 
 if __name__ == "__main__":
     g = GUI()

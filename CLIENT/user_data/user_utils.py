@@ -104,7 +104,7 @@ class message_store:
 class messages():
     def __init__(self):
         PATH = "user_data/messages.db"
-        self.conn = sqlite3.connect(PATH)
+        self.conn = sqlite3.connect(PATH,check_same_thread=False)
         self.c = self.conn.cursor()
         command = """CREATE TABLE IF NOT EXISTS Messages(
                      id string PRIMARY KEY,
@@ -126,7 +126,7 @@ class messages():
             self.store_message(message)
             
     def get_messages(self,user):
-        self.c.execute(f"""SELECT * FROM Messages WHERE user="{user}";""")
+        self.c.execute(f"""SELECT * FROM Messages WHERE author="{user}";""")
         rows = self.c.fetchall()
         messages = []
         for row in rows:
@@ -140,11 +140,15 @@ class messages():
             return False
         return rows[0]
     def get_users(self):
-        self.c.execute(f"SELECT DISTINCT author FROM Messages")
+        self.c.execute("SELECT DISTINCT author FROM Messages")
         results = self.c.fetchall()
         return results
 
+    def most_recent_message(self):
+        self.c.execute("SELECT MAX(sent_time) FROM Messages")
+        result = self.c.fetchall()
+        return result[0][0]
+    
     def delete_message(self,identifier):#TODO
         None
-
 

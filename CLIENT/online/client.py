@@ -30,6 +30,7 @@ class connection():
         self.SEND_USER_MESSAGE = "sm"
         self.USE_KEY = "us"
         self.CHECK_MESSAGES = "cm"
+        self.CHECK_USER = "cu"
         #responses
         self.GOAHEAD = "200"
         self.AUTHERROR = "401"
@@ -415,7 +416,9 @@ class connection():
         self._recieve_message(goahead=True)
         return True
 
-    def check_messages(self):#TODO (somewhere) add message storage lmao
+    def check_messages(self):
+        last_message = self.m.most_recent_message()
+        
         auth = self.authenticated_start()
         self._initiate_connection()
         self._send_message(self.s,self.CHECK_MESSAGES)
@@ -424,7 +427,11 @@ class connection():
         self._recieve_message(goahead=True)
 
         self._send_message(self.s,self.GOAHEAD)
+        self._recieve_message(goahead=True)
+        self._send_message(self.s,last_message)
         num_of_messages = int(self._recieve_message())
+        if num_of_messages == 0:
+            return False
         
         message_list = []
         for x in range(num_of_messages):
@@ -441,10 +448,19 @@ class connection():
             combined = message_store(author,content,send_time,token)
             message_list.append(combined)
         self._send_message(self.s,self.GOAHEAD)
-        if num_of_messages == 0:
-            return False
+
         self.m.store_messages(message_list)
         return message_list
+
+    def check_user(self,username):
+        self._initiate_connection()
+        self._send_message(self.s,self.CHECK_USER)
+        self._recieve_message(goahead=True)
+        self._send_message(self.s,username)
+        check = self._recieve_message()
+        if check == self.GOAHEAD:
+            return True
+        return False
 if __name__ == "__main__":      
     c = connection()
     file_test = True
