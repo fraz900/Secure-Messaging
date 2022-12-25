@@ -648,7 +648,9 @@ class connection():
         self._send_message(c,self.GOAHEAD)
         message = self._recieve_message(c,size=size)
 
-        self.i.add_message(username,recipient,message)
+        code = self.i.add_message(username,recipient,message)
+        self._send_message(c,code)
+        c.close()
         return True
 
     def check_messages(self,c):
@@ -658,7 +660,10 @@ class connection():
             return False
         self._recieve_message(c)
         self._send_message(c,self.GOAHEAD)
-        time_limit = float(self._recieve_message(c))
+        try:
+            time_limit = float(self._recieve_message(c))
+        except:
+            time_limit = 0
         messages = self.i.get_messages_from_user(username,time_limit)
         if not messages:
             self._send_message(c,0)

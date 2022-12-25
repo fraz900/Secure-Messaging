@@ -413,7 +413,10 @@ class connection():
         self._send_message(self.s,size)
         self._recieve_message(goahead=True)
         self._send_message(self.s,message)
-        self._recieve_message(goahead=True)
+        token = self._recieve_message(size=self.LARGESIZE)
+        current_time = time.time()
+        info = message_store(self.u.username,recipient,message,current_time,token)
+        self.m.store_message(info)
         return True
 
     def check_messages(self):
@@ -445,7 +448,7 @@ class connection():
             send_time = self._recieve_message()
             self._send_message(self.s,self.GOAHEAD)
             token = self._recieve_message(size=self.LARGESIZE)
-            combined = message_store(author,content,send_time,token)
+            combined = message_store(author,self.u.username,content,send_time,token)
             message_list.append(combined)
         self._send_message(self.s,self.GOAHEAD)
 

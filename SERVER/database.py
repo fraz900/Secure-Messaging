@@ -119,6 +119,7 @@ class info():
         self.info_c.execute(f"""INSERT INTO Messages(id,sending_user,sent_time,contents,recieving_user)
                             VALUES ("{token}","{author}",{current_time},"{contents}","{recipient}");""")
         self.info_conn.commit()
+        return token
         
     def get_message_from_id(self,token):
         self.info_c.execute(f"""SELECT * FROM Messages WHERE id = "{token}";""")

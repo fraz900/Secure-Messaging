@@ -97,10 +97,12 @@ class tokens_storage():
 @dataclass()
 class message_store:
     author: str
+    recipient: str
     content: str
     send_time: float
     token: str
-    
+
+@dataclass
 class messages():
     def __init__(self):
         PATH = "user_data/messages.db"
@@ -109,14 +111,16 @@ class messages():
         command = """CREATE TABLE IF NOT EXISTS Messages(
                      id string PRIMARY KEY,
                      author string NOT NULL,
+                     recipient string NOT NULL,
                      sent_time real,
                      contents string);"""
         self.c.execute(command)
 
+
     def store_message(self,message):
-        if not self.get_message(message.id):
-            self.c.execute(f"""INSERT INTO Messages (id,author,sent_time,contents)
-                            VALUES ("{message.token}","{message.author}",{message.send_time},"{message.content}");""")
+        if not self.get_message(message.token):
+            self.c.execute(f"""INSERT INTO Messages (id,author,recipient,sent_time,contents)
+                            VALUES ("{message.token}","{message.author}","{message.recipient}",{message.send_time},"{message.content}");""")
             self.conn.commit()
         else:
             return False
@@ -124,16 +128,24 @@ class messages():
     def store_messages(self,messages):
         for message in messages:
             self.store_message(message)
-            
-    def get_messages(self,user):
-        self.c.execute(f"""SELECT * FROM Messages WHERE author="{user}";""")
+
+    def get_message_from_recipient(self,user):
+        self.c.execute(f"""SELECT * FROM Messages WHERE recipient="{user}" AND recipient != author;""")
         rows = self.c.fetchall()
         messages = []
         for row in rows:
-            messages.append(message_store(row[1],row[3],row[2],row[0]))
+            messages.append(message_store(row[1],row[2],row[4],row[3],row[0]))
+        return messages
+          
+    def get_messages(self,user):#returns all messages from a given user
+        self.c.execute(f"""SELECT * FROM Messages WHERE author="{user} AND recipient != author";""")
+        rows = self.c.fetchall()
+        messages = []
+        for row in rows:
+            messages.append(message_store(row[1],row[2],row[4],row[3],row[0]))
         return messages
 
-    def get_message(self,token):
+    def get_message(self,token):#returns a singular message with the token passed
         self.c.execute(f"""SELECT * FROM Messages WHERE id="{token}";""")
         rows = self.c.fetchall()
         if len(rows) == 0:
@@ -142,7 +154,9 @@ class messages():
     def get_users(self):
         self.c.execute("SELECT DISTINCT author FROM Messages")
         results = self.c.fetchall()
-        return results
+        self.c.execute("SELECT DISTINCT recipient FROM Messages")
+        results1 = self.c.fetchall()
+        return list(dict.fromkeys((results+results1)))
 
     def most_recent_message(self):
         self.c.execute("SELECT MAX(sent_time) FROM Messages")

@@ -165,12 +165,19 @@ class GUI():
         def send():
             content = message.get()
             message.set("")
-            recipient = "tester"#TODO add textbox for this
+            try:
+                friend_num = friends_box.curselection()[0]
+                friend = friends_box.get(friend_num)
+            except:
+                None#TODO add some sort of error (invalid selection)
+            recipient = friend
             self.c.send_user_message(content,recipient)
+            messages()
         def exiter():
             top.destroy()
             exit()
         def messages():
+                    
             message_box.delete(0,(message_box.size()-1))
             
             try:
@@ -178,9 +185,12 @@ class GUI():
                 friend = friends_box.get(friend_num)
             except:
                 None#TODO add some sort of error (invalid selection)
-            messages = self.m.get_messages(friend)
+            messages_recieved = self.m.get_messages(friend)
+            messages_sent = self.m.get_message_from_recipient(friend)
+            messages = (messages_recieved+messages_sent)
+            messages.sort(key=lambda x: x.send_time)
             count = 0
-            for message in messages:
+            for message in messages:#TODO if a message is too long split it over multiple lines
                 message_box.insert(count,f"{message.author}: {message.content} <{self.unix_to_normal_time(message.send_time)}>")
                 count += 1
         def add():
@@ -206,11 +216,13 @@ class GUI():
 
         friends_box = tk.Listbox(frame,selectmode = "single")
         friends = self.m.get_users()
+        print(friends)
         count = 1
         for friend in friends:
             friend = friend[0]
-            friends_box.insert(count,friend)
-            count += 1
+            if friend != self.u.username:
+                friends_box.insert(count,friend)
+                count += 1
         friends_box.grid(row=5,column=0)
 
         message_box = tk.Listbox(top,selectmode="single",width=100)
@@ -233,7 +245,8 @@ class GUI():
                 error_lbl.configure(text="Please enter a username")
                 return False
             if self.c.check_user(uname):
-                friends_box.insert((friends_box.size()-1),uname)
+                print(friends_box.size())
+                friends_box.insert((friends_box.size()),uname)#TODO testing, aggresively (minus one or not?)
                 topper.destroy()
             else:
                 error_lbl.configure(text="Could not find user")
