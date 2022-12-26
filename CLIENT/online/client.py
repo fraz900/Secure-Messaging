@@ -2,6 +2,7 @@ import socket
 import hashlib
 import time
 from threading import Thread
+from textwrap import wrap
 try:
     from online.encryption import DH,AES
 except:
@@ -259,15 +260,14 @@ class connection():
                 self.upload(data,name,recurse=True)
         self._send_message(self.s,shared_state)
         self._recieve_message()
-        a = AES(data_to_send)
-        new_data = a.encrypt(self.key)
-        size = self._size(new_data)
-        size *= 1.2
-        size = int(size)
+        size = self._size(data_to_send)
+        size *= 50
         self._send_message(self.s,size)
         self._recieve_message()
-        self._send_message(self.s,data_to_send)
-        check = self._recieve_message(goahead=True)
+        packets = wrap(data_to_send,2048)
+        for packet in packets:#TODO kinda, really slow
+            self._send_message(self.s,packet)
+            check = self._recieve_message(goahead=True)
         self._send_message(self.s,self.GOAHEAD)
         
         namer = self._recieve_message(size=self.LARGESIZE)
@@ -353,15 +353,15 @@ class connection():
         self._send_message(self.s,self.GOAHEAD)
         file_size = int(round(float(self._recieve_message())))
         self._send_message(self.s,self.GOAHEAD)
-        data = self._recieve_message(size=file_size)
-        try:
-            self.WARNINGS[data]
-            self._error_handling(data)
-            return
-        except KeyError:
-            None
+        final = ""
+        while True:
+            data = self._recieve_message(size=500000)
+            if data == self.GOAHEAD:
+                break
+            self._send_message(self.s,self.GOAHEAD)
+            final += data
         self.s.close()
-        return data
+        return final
     def share(self,filename,user_to_share):
         auth = self.authenticated_start()
         self._initiate_connection()

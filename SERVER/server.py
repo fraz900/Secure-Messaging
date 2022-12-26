@@ -6,6 +6,7 @@ import threading
 import os
 import sys
 import time
+from textwrap import wrap
 from database import tokens,info
 from encryption import DH,AES
 class connection():
@@ -41,6 +42,7 @@ class connection():
         self.CHECK_USER = "cu"
         #other
         self.LARGESIZE = 20000
+        self.VERYLARGESIZE = 100000
         self.KEYTIMEOUT = 3600 #seconds, one hour
         self.TIMEOUT = 20
         self.t = tokens()
@@ -247,9 +249,18 @@ class connection():
             shared = True
         self._send_message(user,self.GOAHEAD)
         size = int(self._recieve_message(user))
+        maximum = round(size/5096) + 3
         self._send_message(user,self.GOAHEAD)
-        
-        data = self._recieve_message(user,size=size)
+        count = 0
+        complete = ""
+        while count <= maximum:
+            data = self._recieve_message(user,size=self.VERYLARGESIZE)
+            if data == self.GOAHEAD:
+                break
+            else:
+                count += 1
+                complete += data
+                self._send_message(user,self.GOAHEAD)
         os.chdir("data")
         if not shared:
             os.chdir(username)
@@ -260,7 +271,7 @@ class connection():
                 if name not in files:
                     break
             file = open(name,"w")
-            file.write(data)
+            file.write(complete)
             file.close()
         else:
             os.chdir("shared")
@@ -270,7 +281,7 @@ class connection():
                 if name not in files:
                     break
             file = open(name,"w")
-            file.write(data)
+            file.write(complete)
             file.close()
             namer = f"{name} ownership"
             file = open(namer,"w")
@@ -280,8 +291,6 @@ class connection():
         os.chdir(os.path.split(__file__)[0])
         os.chdir("data")
         os.chdir(username)
-        self._send_message(user,self.GOAHEAD)
-        self._recieve_message(user)
         self._send_message(user,name)
         current_time = time.time()
         file = open(self.MANIFEST,"a")
@@ -441,13 +450,15 @@ class connection():
         file.close()
         self._send_message(user,self.GOAHEAD)
         self._recieve_message(user)
-        a = AES(content)
-        new_data = a.encrypt(self.key)
-        size = self._size(new_data)
-        size *= 1.2
+        size = self._size(content)
+        size *= 50
         self._send_message(user,size)
         self._recieve_message(user)
-        self._send_message(user,content)
+        packets = wrap(content,5096)
+        for packet in packets:
+            self._send_message(user,packet)
+            self._recieve_message(user)
+        self._send_message(user,self.GOAHEAD)
         user.close()
     def login(self,user,ip):
         self._send_message(user,self.GOAHEAD)

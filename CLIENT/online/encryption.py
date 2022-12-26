@@ -309,9 +309,11 @@ if __name__ == "__main__":
     check = "AES" #or "AES"
     if check == "AES":
         test_string = "this is a test string"
+        print(len(test_string.encode('utf-8')))
         a = AES(test_string)
         key = a.generate_key()
-        a.encrypt(key)
+        b = a.encrypt(key)
+        print(len(b.encode('utf-8')))
         print(a)
         a.decrypt(key)
         print(a)
