@@ -230,7 +230,7 @@ class connection():
             auth = self.AUTHCODE
             return auth
     
-    def upload(self,data_to_send,name,shared=False,recurse=False):#TODO add a filetype descriptor?
+    def upload(self,data_to_send,shared=False,recurse=False):
         shared_state = "singular"
         if shared:
             shared_state = "shared"
@@ -271,10 +271,6 @@ class connection():
         self._send_message(self.s,self.GOAHEAD)
         
         namer = self._recieve_message(size=self.LARGESIZE)
-        file = open(self.UPLOADS,"a")
-        entry = f"\n{name},{namer}"
-        file.write(entry)
-        file.close()
         return namer
 
     def ping(self):
@@ -320,7 +316,7 @@ class connection():
         self.s.close()
         return True
         
-    def delete(self,filename):
+    def delete(self,filename):#TODO change so it takes the token namer
         auth = self.authenticated_start()
         self._initiate_connection()
         self._send_message(self.s,self.DELETEDATA)
@@ -353,7 +349,11 @@ class connection():
         self._send_message(self.s,auth)
         data = self._recieve_message(goahead=True)
         self._send_message(self.s,filename)
-        data = self._recieve_message(size=self.LARGESIZE)
+        self._recieve_message(goahead=True)
+        self._send_message(self.s,self.GOAHEAD)
+        file_size = int(round(float(self._recieve_message())))
+        self._send_message(self.s,self.GOAHEAD)
+        data = self._recieve_message(size=file_size)
         try:
             self.WARNINGS[data]
             self._error_handling(data)
@@ -417,7 +417,7 @@ class connection():
         self._send_message(self.s,message)
         token = self._recieve_message(size=self.LARGESIZE)
         current_time = time.time()
-        info = message_store(self.u.username,recipient,message,current_time,token)
+        info = message_store(self.USER_NAME,recipient,message,current_time,token)
         self.m.store_message(info)
         return True
 
@@ -443,14 +443,14 @@ class connection():
             self._send_message(self.s,self.GOAHEAD)
             author = self._recieve_message()
             self._send_message(self.s,self.GOAHEAD)
-            size = int(self._recieve_message())
+            size = int(round(float(self._recieve_message())))
             self._send_message(self.s,self.GOAHEAD)
             content = self._recieve_message(size=size)
             self._send_message(self.s,self.GOAHEAD)
             send_time = self._recieve_message()
             self._send_message(self.s,self.GOAHEAD)
             token = self._recieve_message(size=self.LARGESIZE)
-            combined = message_store(author,self.u.username,content,send_time,token)
+            combined = message_store(author,self.USER_NAME,content,send_time,token)
             message_list.append(combined)
         self._send_message(self.s,self.GOAHEAD)
 
@@ -466,6 +466,21 @@ class connection():
         if check == self.GOAHEAD:
             return True
         return False
+
+
+    def file_to_bin(self,filename):
+        bytetable = [("00000000"+bin(x)[2:])[-8:] for x in range(256)]
+        binrep = "".join(bytetable[x] for x in open(filename, "rb").read())
+        return binrep
+    
+    def bin_to_bytes(self,binrep):
+        v = int(binrep, 2)
+        b = bytearray()
+        while v:
+            b.append(v & 0xff)
+            v >>= 8
+        return bytes(b[::-1])
+    
 if __name__ == "__main__":      
     c = connection()
     file_test = True

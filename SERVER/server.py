@@ -436,9 +436,17 @@ class connection():
             os.chdir(os.path.split(__file__)[0])
             os.chdir("data")
             os.chdir("shared")
-        file = open(filename,"r")#what if two users try and view at the same time?
+        file = open(filename,"r")
         content = file.read()
         file.close()
+        self._send_message(user,self.GOAHEAD)
+        self._recieve_message(user)
+        a = AES(content)
+        new_data = a.encrypt(self.key)
+        size = self._size(new_data)
+        size *= 1.2
+        self._send_message(user,size)
+        self._recieve_message(user)
         self._send_message(user,content)
         user.close()
     def login(self,user,ip):
@@ -664,11 +672,17 @@ class connection():
             time_limit = float(self._recieve_message(c))
         except:
             time_limit = 0
-        messages = self.i.get_messages_from_user(username,time_limit)
-        if not messages:
-            self._send_message(c,0)
-            c.close()
-            return False
+        messages1 = self.i.get_messages_from_user(username,time_limit)
+        messages2 = self.i.get_messages_from_author(username,time_limit)
+        if not messages1:
+            if not messages2:
+                self._send_message(c,0)
+                c.close()
+                return False
+            messages = messages2
+        else:
+            messages = (messages1+messages2)
+            
         num_of_messages = len(messages)
         self._send_message(c,num_of_messages)
         for message in messages:
@@ -676,7 +690,10 @@ class connection():
             sender = message[1]
             sent_time = message[2]
             content = message[3]
-            size = self._size(content)
+            a = AES(content)
+            new_data = a.encrypt(self.key)
+            size = self._size(new_data)
+            size *= 1.2
             self._recieve_message(c)
             self._send_message(c,sender)
             self._recieve_message(c)

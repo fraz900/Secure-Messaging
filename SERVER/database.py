@@ -137,6 +137,16 @@ class info():
             return False
         else:
             return rows
+
+    def get_messages_from_author(self,username,time_limit):
+        command = f"""SELECT * FROM Messages WHERE sending_user = "{username}" AND sent_time > {time_limit};"""
+        self.info_c.execute(command)
+        rows = self.info_c.fetchall()
+        if len(rows) == 0:
+            return False
+        else:
+            return rows
+
 class tokens():
     def __init__(self,time_limit=600):
         self.token_conn = sqlite3.connect("resources/tokens.db", check_same_thread=False)

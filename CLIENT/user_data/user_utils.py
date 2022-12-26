@@ -34,6 +34,7 @@ class user():#stores user info and settings
         file.close()
         self.exists = True
         self.username = uname
+        messages().reset()
         self.pass_hash = pass_hash
         return True
     
@@ -102,7 +103,6 @@ class message_store:
     send_time: float
     token: str
 
-@dataclass
 class messages():
     def __init__(self):
         PATH = "user_data/messages.db"
@@ -116,6 +116,10 @@ class messages():
                      contents string);"""
         self.c.execute(command)
 
+    def reset(self):
+        self.c.execute("DROP TABLE Messages")
+        self.conn.commit()
+        self.__init__()
 
     def store_message(self,message):
         if not self.get_message(message.token):
@@ -129,7 +133,7 @@ class messages():
         for message in messages:
             self.store_message(message)
 
-    def get_message_from_recipient(self,user):
+    def get_message_from_recipient(self,user):#returns all messages to a given user
         self.c.execute(f"""SELECT * FROM Messages WHERE recipient="{user}" AND recipient != author;""")
         rows = self.c.fetchall()
         messages = []
@@ -138,7 +142,7 @@ class messages():
         return messages
           
     def get_messages(self,user):#returns all messages from a given user
-        self.c.execute(f"""SELECT * FROM Messages WHERE author="{user} AND recipient != author";""")
+        self.c.execute(f"""SELECT * FROM Messages WHERE author="{user}" AND recipient != author;""")
         rows = self.c.fetchall()
         messages = []
         for row in rows:

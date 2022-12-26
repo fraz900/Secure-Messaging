@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import filedialog as fd
 from PIL import Image, ImageTk
 from online.client import *
 from user_data.user_utils import user,messages
@@ -148,13 +149,15 @@ class GUI():
 
         
     def main(self):
+        self.fileupload = False
         top = tk.Tk()
         size = f"{self.resolution[0]}x{self.resolution[1]}"
         #size = "600x700"
         top.geometry(size)
         top.title("messaging_screen")
         top.configure(bg="cyan")
-
+        self.c.check_messages()
+        
         #canvas=tk.Canvas(top, width=self.resolution[0], height=self.resolution[1])
         #canvas = tk.Canvas(top,width=600,height=350)
         #canvas.grid(row=0,column=0)
@@ -163,19 +166,31 @@ class GUI():
         top.grid_columnconfigure(0, weight=0)
         message = tk.StringVar()
         def send():
-            content = message.get()
-            message.set("")
             try:
                 friend_num = friends_box.curselection()[0]
                 friend = friends_box.get(friend_num)
             except:
                 None#TODO add some sort of error (invalid selection)
             recipient = friend
-            self.c.send_user_message(content,recipient)
+            if self.fileupload:
+                data = self.c.file_to_bin(self.path)
+                name = self.c.upload(data)#TODO make it work for big files
+                self.c.share(name,friend)
+                self.c.send_user_message(f"<file>,{name},{os.path.basename(self.path)}",friend)
+                self.fileupload = False
+                message.set("")
+                message_entry.configure(state="normal",fg="black")
+                file_name.configure(text="")
+            else:
+                content = message.get()
+                if content == "":
+                    return False
+                message.set("")
+                self.c.send_user_message(content,recipient)
             messages()
         def exiter():
             top.destroy()
-            exit()
+
         def messages():
                     
             message_box.delete(0,(message_box.size()-1))
@@ -190,29 +205,110 @@ class GUI():
             messages = (messages_recieved+messages_sent)
             messages.sort(key=lambda x: x.send_time)
             count = 0
+            self.message_list = []
             for message in messages:#TODO if a message is too long split it over multiple lines
-                message_box.insert(count,f"{message.author}: {message.content} <{self.unix_to_normal_time(message.send_time)}>")
+                self.message_list.append(message)
+                if message.content.startswith("<file>"):
+                    parts = message.content.split(",")
+                    message_box.insert(count,f"{message.author}: {parts[2]} <{self.unix_to_normal_time(message.send_time)}>")
+                    message_box.itemconfig(count,{"fg":"blue"})
+                else:
+                    message_box.insert(count,f"{message.author}: {message.content} <{self.unix_to_normal_time(message.send_time)}>")
                 count += 1
-        def add():
+
+        def add_friend():
             self.add_friend_window(top,friends_box)
+
+        def add_file():#TODO add size limit (8mb?)
+            filepath = fd.askopenfilename()
+            filename = os.path.basename(filepath)
+            file_name.configure(text=filename)
+            self.fileupload = True
+            self.path = filepath
+            message.set("Sending File")
+            message_entry.configure(state="disabled",fg="gray")
+
+        def remove_file():
+            self.fileupload = False
+            message.set("")
+            message_entry.configure(state="normal",fg="black")
+            file_name.configure(text="")
+
+
+        def do_popup(event):
+            posy = message_box.winfo_rooty() 
+            selected = message_box.nearest((event.y_root-posy))
+            message = self.message_list[selected]
+            message_box.selection_clear(0, tk.END)
+            message_box.selection_set(selected)
+            m = tk.Menu(message_box,tearoff=0)
+            if message.content.startswith("<file>"):
+                m.add_command(label="Download",command=lambda: download(message))#TODO
+                if message.author == self.u.username:
+                    m.add_separator()
+                    m.add_command(label="delete")#TODO
+            elif message.author == self.u.username:
+                m.add_command(label="view info",command= lambda: view_info(message))
+                m.add_command(label="edit")#TODO
+                m.add_separator()
+                m.add_command(label="delete")#TODO
+            else:
+                m.add_command(label="view info",command= lambda: view_info(message))
+            try:
+                m.tk_popup(event.x_root,event.y_root)
+            finally:
+                m.grab_release()
+        def view_info(message):
+            topper = tk.Toplevel(top)
+            topper.geometry("750x250")
+            topper.title("Message Info")
+            author_label = tk.Label(topper,text=f"Author: {message.author}" ,font=('calibre',10, 'bold'))
+            author_label.grid(row=0,column=0)
+            recipient_label = tk.Label(topper,text=f"Recipient: {message.recipient}" ,font=('calibre',10, 'bold'))
+            recipient_label.grid(row=1,column=0)
+            content_label = tk.Label(topper,text=f"Content: {message.content}" ,font=('calibre',10, 'bold'))
+            content_label.grid(row=2,column=0)
+            send_time_label = tk.Label(topper,text=f"Send time: {message.send_time}" ,font=('calibre',10, 'bold'))
+            send_time_label.grid(row=3,column=0)
+            token_label = tk.Label(topper,text=f"ID Token: {message.token}" ,font=('calibre',10, 'bold'))
+            token_label.grid(row=4,column=0)
+
+        def download(message):#TODO consider threading?
+            info = message.content.split(",")
+            retrieval = info[1]
+            filename = info[2]
+            data = self.c.view(retrieval)
+            data = data.strip()
+            byte_string = self.c.bin_to_bytes(data)
+            path = os.path.join(r"c:\Users\Admin\Downloads",filename)#TODO let em pick
+            file = open(path,"wb")
+            file.write(byte_string)
+            file.close()#TODO add notification of download completion
+            
         frame = tk.Frame(top,width=400,height=100,bg="red")
         frame.grid(row=1,column=0, sticky="n")
         
         message_entry = tk.Entry(frame,textvariable = message, font=('calibre',10,'normal'))
         message_entry.grid(row=1,column=0)
+
+        file_name = tk.Label(frame,text="",font=('calibre',10, 'bold'),fg="blue",bg="red")
+        file_name.grid(row=2,column=0)
         
         send_button = tk.Button(frame,text = "Send Message", command = send)
         send_button.grid(row=1,column=1)
 
-        exit_button = tk.Button(frame,text="exit",command=exiter)
-        exit_button.grid(row=4,column=1)
-
-        check_message_button = tk.Button(frame,text="View Messages",command=messages)
-        check_message_button.grid(row=2,column=1)
-
         #"friend" here is used to indicate someone you are communicating with, there is no "friending" system
-        add_friend_button = tk.Button(frame,text="New Chat",command=add)
-        add_friend_button.grid(row=3,column=1)
+        add_friend_button = tk.Button(frame,text="New Chat",command=add_friend)
+        add_friend_button.grid(row=2,column=1)
+
+        exit_button = tk.Button(frame,text="Exit",command=exiter)
+        exit_button.grid(row=3,column=1)
+
+        add_file_button = tk.Button(frame,text="Add File",command=add_file)
+        add_file_button.grid(row=6,column=1)
+
+        remove_file_button = tk.Button(frame,text="Remove File",command=remove_file)
+        remove_file_button.grid(row=7,column=1)
 
         friends_box = tk.Listbox(frame,selectmode = "single")
         friends = self.m.get_users()
@@ -224,11 +320,12 @@ class GUI():
                 friends_box.insert(count,friend)
                 count += 1
         friends_box.grid(row=5,column=0)
-
+        friends_box.bind("<Double-1>", lambda x: messages())
+        
         message_box = tk.Listbox(top,selectmode="single",width=100)
         message_box.grid(row=1,column=1,sticky="nsew")
-        
-        self.c.check_messages()
+
+        message_box.bind("<Button-3>", do_popup)
         
         top.resizable(True,True)
         top.mainloop()
