@@ -177,9 +177,11 @@ class messages():
         result = self.c.fetchall()
         return result[0][0]
     
-    def delete_message(self,identifier):#TODO
-        None
-
+    def delete_message(self,identifier):
+        self.c.execute(f"""DELETE FROM Messages WHERE id="{identifier}";""")
+        self.conn.commit()
+        return True
+    
 class settings():
     def __init__(self,path="user_data/settings.xml"):
         self.path = path

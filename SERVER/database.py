@@ -147,6 +147,12 @@ class info():
         else:
             return rows
 
+    def delete_message(self,token):
+        command = f"""DELETE FROM Messages WHERE id = "{token}";"""
+        self.info_c.execute(command)
+        self.info_conn.commit()
+        return True
+    
 class tokens():
     def __init__(self,time_limit=600):
         self.token_conn = sqlite3.connect("resources/tokens.db", check_same_thread=False)

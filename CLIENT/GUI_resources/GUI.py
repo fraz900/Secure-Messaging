@@ -3,7 +3,7 @@ from tkinter import filedialog as fd
 from tkinter.colorchooser import askcolor
 from PIL import Image, ImageTk
 from online.client import *
-from user_data.user_utils import user,messages
+from user_data.user_utils import user
 import os
 import time
 import threading
@@ -15,7 +15,6 @@ class GUI():
     def __init__(self):
         self.c = connection()
         self.u = user()
-        self.m = messages()
         user32 = ctypes.windll.user32
         self.resolution = user32.GetSystemMetrics(0),user32.GetSystemMetrics(1)
         
@@ -197,8 +196,8 @@ class GUI():
                 friend = friends_box.get(friend_num)
             except:
                 return False
-            messages_recieved = self.m.get_messages(friend)
-            messages_sent = self.m.get_message_from_recipient(friend)
+            messages_recieved = self.u.m.get_messages(friend)
+            messages_sent = self.u.m.get_message_from_recipient(friend)
             messages = (messages_recieved+messages_sent)
             messages.sort(key=lambda x: x.send_time)
             count = 0
@@ -242,16 +241,28 @@ class GUI():
             message_box.selection_clear(0, tk.END)
             message_box.selection_set(selected)
             m = tk.Menu(message_box,tearoff=0)
+
+            def delete(file=False):
+                if file:
+                    print("fraps")
+                    info = message.content.split(",")
+                    retrieval = info[1]
+                    self.c.delete(retrieval)
+                self.c.delete_message(message.token)
+                self.u.m.delete_message(message.token)
+                message_box.delete(selected)
+            def edit():#TODO
+                None
             if message.content.startswith("<file>"):
                 m.add_command(label="Download",command=lambda: download(message))
                 if message.author == self.u.username:
                     m.add_separator()
-                    m.add_command(label="delete")#TODO
+                    m.add_command(label="delete",command=lambda: delete(file=True))
             elif message.author == self.u.username:
                 m.add_command(label="view info",command= lambda: view_info(message))
-                m.add_command(label="edit")#TODO
+                m.add_command(label="edit",command=edit)
                 m.add_separator()
-                m.add_command(label="delete")#TODO
+                m.add_command(label="delete",command=delete)
             else:
                 m.add_command(label="view info",command= lambda: view_info(message))
             try:
@@ -316,7 +327,7 @@ class GUI():
         remove_file_button.grid(row=7,column=1)
 
         friends_box = tk.Listbox(frame,selectmode = "single")
-        friends = self.m.get_users()
+        friends = self.u.m.get_users()
         print(friends)
         count = 1
         for friend in friends:
@@ -370,7 +381,7 @@ class GUI():
         error_lbl = tk.Label(topper,text="" ,font=('calibre',10, 'bold'),fg="red")
         error_lbl.grid(row=3,column=1)
 
-    def settings_window(self,top,message_box):#TODO
+    def settings_window(self,top,message_box):
         topper = tk.Toplevel(top)
         topper.geometry("750x250")
         topper.title("Settings")

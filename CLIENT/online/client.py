@@ -32,6 +32,7 @@ class connection():
         self.USE_KEY = "us"
         self.CHECK_MESSAGES = "cm"
         self.CHECK_USER = "cu"
+        self.DELETEMESSAGE = "dm"
         #responses
         self.GOAHEAD = "200"
         self.AUTHERROR = "401"
@@ -314,30 +315,16 @@ class connection():
         self.s.close()
         return True
         
-    def delete(self,filename):#TODO change so it takes the token namer
+    def delete(self,file_token):
         auth = self.authenticated_start()
         self._initiate_connection()
         self._send_message(self.s,self.DELETEDATA)
         data = self._recieve_message(goahead=True)
         self._send_message(self.s,auth)
         data = self._recieve_message(goahead=True)
-        self._send_message(self.s,filename)
+        self._send_message(self.s,file_token)
         data = self._recieve_message(goahead=True)
         self.s.close()
-        file = open(self.UPLOADS,"r")
-        content = file.read()
-        file.close()
-        new = []
-        content = content.split("\n")
-        for line in content:
-            if filename not in line:
-                new.append(line)
-        final = ""
-        for line in new:
-            final += line + "\n"
-        file = open(self.UPLOADS,"w")
-        file.write(final)
-        file.close()
         return True
     def view(self,filename):
         auth = self.authenticated_start()
@@ -457,6 +444,17 @@ class connection():
         self.u.m.store_messages(message_list)
         return message_list
 
+    def delete_message(self,token):
+        auth = self.authenticated_start()
+        self._initiate_connection()
+        self._send_message(self.s,self.DELETEMESSAGE)
+        self._recieve_message(goahead=True)
+        self._send_message(self.s,auth)
+        self._recieve_message(goahead=True)
+
+        self._send_message(self.s,token)
+        self._recieve_message(goahead=True)
+        
     def check_user(self,username):
         self._initiate_connection()
         self._send_message(self.s,self.CHECK_USER)
