@@ -7,7 +7,7 @@ try:
     from online.encryption import DH,AES
 except:
     from encryption import DH,AES
-from user_data.user_utils import user,tokens_storage,message_store,messages
+from user_data.user_utils import user,message_store
 class connection():
     def __init__(self,IP="127.0.0.1",PORT=12345,debug=True):
         self.DEBUG = debug
@@ -43,8 +43,6 @@ class connection():
         self.LARGESIZE = 20000
         self.UPLOADS = "uploads.txt"
         self.u = user()
-        self.t = tokens_storage()
-        self.m = messages()
         check = self.u.details()
         if not check:
             self.REFRESH_CODE = None
@@ -105,7 +103,7 @@ class connection():
         data = self._recieve_message(setup=True,goahead=True)
 
         if encrypted:
-            check = self.t.check_key_token()
+            check = self.u.t.check_key_token()
             if check:
                 token,key = check
                 self._send_message(self.s,self.USE_KEY,setup=True)
@@ -115,7 +113,7 @@ class connection():
                 self._send_message(self.s,token,setup=True)
                 accepted = self._recieve_message(setup=True)
                 if accepted == self.AUTHERROR:
-                    self.t.delete("key")
+                    self.u.t.delete("key")
                     self._initiate_connection()
                     return 
                 elif accepted != self.GOAHEAD:
@@ -143,7 +141,7 @@ class connection():
                 self._send_message(self.s,self.GOAHEAD)
                 try:
                     key_toke = self._recieve_message(size=self.LARGESIZE)
-                    self.t.store_key_token(self.key,key_toke)
+                    self.u.t.store_key_token(self.key,key_toke)
                     return
                 except Exception as e:
                     self.print1(e)
@@ -154,7 +152,7 @@ class connection():
     def get_auth_token(self):
         current_time = time.time()
         try:
-            check_time,auth = self.t.check_auth_code()
+            check_time,auth = self.u.t.check_auth_code()
             if (current_time-check_time) < self.KEYTIMEOUT:
                 self.AUTHCODE = auth
                 self._initiate_connection()
@@ -183,7 +181,7 @@ class connection():
             self._error_handling(data)
         except KeyError:
             self.AUTHCODE = data
-            self.t.store_auth_code(self.AUTHCODE)
+            self.u.t.store_auth_code(self.AUTHCODE)
             self.s.close()
             self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             return True
@@ -418,11 +416,11 @@ class connection():
         token = self._recieve_message(size=self.LARGESIZE)
         current_time = time.time()
         info = message_store(self.USER_NAME,recipient,message,current_time,token)
-        self.m.store_message(info)
+        self.u.m.store_message(info)
         return True
 
     def check_messages(self):
-        last_message = self.m.most_recent_message()
+        last_message = self.u.m.most_recent_message()
         
         auth = self.authenticated_start()
         self._initiate_connection()
@@ -456,7 +454,7 @@ class connection():
             message_list.append(combined)
         self._send_message(self.s,self.GOAHEAD)
 
-        self.m.store_messages(message_list)
+        self.u.m.store_messages(message_list)
         return message_list
 
     def check_user(self,username):

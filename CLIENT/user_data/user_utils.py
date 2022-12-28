@@ -10,11 +10,14 @@ import sqlite3
 import os
 import time
 from dataclasses import dataclass
+import xml.etree.cElementTree as ET
+import pathlib
 
 class user():#stores user info and settings 
     def __init__(self):
         self.t = tokens_storage()
         self.m = messages()
+        self.s = settings()
         try:
             file = open("user_data/user_account.txt","r")
             data = file.read()
@@ -52,6 +55,11 @@ class user():#stores user info and settings
     def delete(self,file):
         matcher = {"account":"user_data/user_account.txt"}
         os.remove(matcher[file])
+
+    def delete_all(self):
+        self.delete("account")
+        self.s.delete()
+        self.m.reset()
 
 class tokens_storage():
     def __init__(self):
@@ -172,5 +180,39 @@ class messages():
     def delete_message(self,identifier):#TODO
         None
 
+class settings():
+    def __init__(self,path="user_data/settings.xml"):
+        self.path = path
+        try:
+            tree = ET.parse(self.path)
+            root = tree.getroot()
+            settings_tree = root.find("settings")
+            self.download_folder = settings_tree.find("download_folder").text
+            colour_tree = settings_tree.find("colours")
+            self.text_colour = colour_tree.find("text_colour").text
+            self.background_colour = colour_tree.find("background_colour").text
+        except:
+            self.download_folder = str(pathlib.Path.home() / "Downloads")
+            self.text_colour = "black"
+            self.background_colour = "white"
+            root = ET.Element("root")
+            settings_sub = ET.SubElement(root,"settings")
+            colours = ET.SubElement(settings_sub,"colours")
+            ET.SubElement(colours,"text_colour").text = self.text_colour
+            ET.SubElement(colours,"background_colour").text = self.background_colour
+            ET.SubElement(settings_sub,"download_folder").text = self.download_folder
+            tree = ET.ElementTree(root)
+            tree.write(self.path,encoding='UTF-8',xml_declaration=True)
+        self.tree = tree
+        
+    def update(self,setting,new):
+        for thing in self.tree.findall(f".//{setting}"):
+            thing.text = new
+        self.tree.write(self.path,encoding='UTF-8',xml_declaration=True)
+        self.__init__(self.path)
+        
+    def delete(self):
+        os.remove(self.path)
+        
 if __name__== "__main__":
-    u = user()
+    u = settings("settings.xml")

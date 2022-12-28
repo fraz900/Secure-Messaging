@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import filedialog as fd
+from tkinter.colorchooser import askcolor
 from PIL import Image, ImageTk
 from online.client import *
 from user_data.user_utils import user,messages
@@ -216,7 +217,7 @@ class GUI():
             self.add_friend_window(top,friends_box)
 
         def settings():
-            self.settings_window(top)
+            self.settings_window(top,message_box)
             
         def add_file():#TODO add size limit (8mb? (hahaha you're funny, 128kb))
             filepath = fd.askopenfilename()
@@ -279,7 +280,7 @@ class GUI():
             data = self.c.view(retrieval)
             data = data.strip()
             byte_string = self.c.bin_to_bytes(data)
-            path = os.path.join(r"c:\Users\Admin\Downloads",filename)#TODO let em pick
+            path = os.path.join(self.u.s.download_file,filename)
             file = open(path,"wb")
             file.write(byte_string)
             file.close()
@@ -326,7 +327,7 @@ class GUI():
         friends_box.grid(row=5,column=0)
         friends_box.bind("<Double-1>", lambda x: messages())
         
-        message_box = tk.Listbox(top,selectmode="single",width=100)
+        message_box = tk.Listbox(top,selectmode="single",width=100,fg=self.u.s.text_colour,bg=self.u.s.background_colour)
         message_box.grid(row=1,column=1,sticky="nsew")
         message_box.bind("<Button-3>", do_popup)
 
@@ -369,15 +370,79 @@ class GUI():
         error_lbl = tk.Label(topper,text="" ,font=('calibre',10, 'bold'),fg="red")
         error_lbl.grid(row=3,column=1)
 
-    def settings_window(self,top):#TODO
+    def settings_window(self,top,message_box):#TODO
         topper = tk.Toplevel(top)
         topper.geometry("750x250")
         topper.title("Settings")
 
-        #download file (file explorer and entry input)
+        def new_download_folder():
+            filepath = fd.askdirectory()
+            if not filepath:
+                return False
+            self.u.s.update("donwload_folder",filepath)
+            download_path_entry.configure(state=tk.NORMAL)
+            download_path_entry.delete(0,tk.END)
+            download_path_entry.insert(0,filepath)
+            download_path_entry.xview_moveto(1)
+            download_path_entry.configure(state=tk.DISABLED)
+            
+        def text_colour():
+            check = get_colour(self.u.s.text_colour)
+            if not check:
+                return False
+            self.u.s.update("text_colour",check)
+            text_colour_button.configure(fg=check)
+            message_box.configure(fg=check)
+            
+        def background_colour():
+            check = get_colour(self.u.s.background_colour)
+            if not check:
+                return False
+            self.u.s.update("background_colour",check)
+            background_colour_button.configure(bg=check)
+            message_box.configure(bg=check)
+            
+        def reset_settings():
+            self.u.s.delete()
+            self.u.__init__()
+            background_colour_button.configure(bg=self.u.s.background_colour)
+            message_box.configure(bg=self.u.s.background_colour)
+            text_colour_button.configure(fg=self.u.s.text_colour)
+            message_box.configure(fg=self.u.s.text_colour)
+            download_path_entry.configure(state=tk.NORMAL)
+            download_path_entry.delete(0,tk.END)
+            download_path_entry.insert(0,self.u.s.download_folder)
+            download_path_entry.configure(state=tk.DISABLED)
+            self.notif(topper,"settings reset")
+            
+        def delete_account():#TODO add check
+            self.u.delete_all()
+            
+        def get_colour(start):
+            return askcolor(start)[1]
 
 
-        #Account deletion
+        download_path_entry = tk.Entry(topper,font=('calibre',10,'normal'),width=30)
+        download_path_entry.insert(0,self.u.s.download_folder)
+        download_path_entry.xview_moveto(1)
+        download_path_entry.configure(state=tk.DISABLED)
+        download_path_entry.grid(row=0,column=0)
+
+        download_path_button = tk.Button(topper,text="change",command=new_download_folder)
+        download_path_button.grid(row=0,column=1)
+        
+        text_colour_button = tk.Button(topper,text="text_colour",fg=self.u.s.text_colour,command=text_colour)
+        text_colour_button.grid(row=1,column=0)
+
+        background_colour_button = tk.Button(topper,text="background_colour",bg=self.u.s.background_colour,command=background_colour)
+        background_colour_button.grid(row=2,column=0)
+
+        reset_settings_button = tk.Button(topper,text="Reset Settings",command=reset_settings)
+        reset_settings_button.grid(row=3,column=0)
+        
+        account_delete_button = tk.Button(topper,text="Delete Account",command=delete_account)
+        account_delete_button.grid(row=4,column=0)
+
         
     def unix_to_normal_time(self,time):
         new = datetime.datetime.fromtimestamp(time)
@@ -388,8 +453,8 @@ class GUI():
         topper = tk.Toplevel(top)
         topper.geometry("500x200")
         topper.title("Notification")
-        tk.Label(topper,text=message,font=('calibre',10, 'bold')).grid(row=1.column=1)
-        
+        tk.Label(topper,text=message,font=('calibre',10, 'bold')).grid(row=1,column=1)
+        tk.Button(topper,text="exit",command = lambda: topper.destroy()).grid(row=2,column=1)
 if __name__ == "__main__":
     g = GUI()
     g.main()
