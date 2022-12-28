@@ -41,6 +41,7 @@ class connection():
         self.CHECK_MESSAGES = "cm"
         self.CHECK_USER = "cu"
         self.DELETEMESSAGE = "dm"
+        self.EDITMESSAGE= "em"
         #other
         self.LARGESIZE = 20000
         self.VERYLARGESIZE = 100000
@@ -149,6 +150,8 @@ class connection():
                 self.check_user(c)
             case self.DELETEMESSAGE:
                 self.delete_message(c)
+            case self.EDITMESSAGE:
+                self.edit_message(c)
             case _:
                 print("command",command)
                 self._send_message(c,self.FAILURE)
@@ -419,6 +422,7 @@ class connection():
         file.write(final)
         file.close()
         return True
+    
     def view(self,user):
         username = self._authenticate(user)
         if not username:
@@ -725,7 +729,6 @@ class connection():
         return True
             
     def delete_message(self,c):
-        None
         username = self._authenticate(c)
         if not username:
             c.close()
@@ -742,6 +745,31 @@ class connection():
             c.close()
             return False
         self.i.delete_message(token)
+        self._send_message(c,self.GOAHEAD)
+        c.close()
+        return True
+
+    def edit_message(self,c):
+        username = self._authenticate(c)
+        if not username:
+            c.close()
+            return False
+
+        token = self._recieve_message(c,size=self.LARGESIZE)
+        message = self.i.get_message_from_id(token)
+        if not message:
+            self._send_message(c,self.NOTFOUND)
+            c.close()
+            return False
+        if message[1] != username:
+            self._send_message(c,self.NOTALLOWED)
+            c.close()
+            return False
+        self._send_message(c,self.GOAHEAD)
+        size = int(round(float(self._recieve_message(c))))
+        self._send_message(c,self.GOAHEAD)
+        new_message = self._recieve_message(c,size=size)
+        self.i.edit_message(token,new_message)
         self._send_message(c,self.GOAHEAD)
         c.close()
         return True

@@ -1,3 +1,4 @@
+#TODO p2p
 import socket
 import hashlib
 import time
@@ -33,6 +34,7 @@ class connection():
         self.CHECK_MESSAGES = "cm"
         self.CHECK_USER = "cu"
         self.DELETEMESSAGE = "dm"
+        self.EDITMESSAGE= "em"
         #responses
         self.GOAHEAD = "200"
         self.AUTHERROR = "401"
@@ -63,7 +65,6 @@ class connection():
         else:
             a = AES(message)
             encrypted_message = a.encrypt(self.key)
-            self.print1(self._size(encrypted_message))
             sock.sendall(encrypted_message.encode())
             
     def _recieve_message(self,size=1024,setup=False,goahead=False):
@@ -326,6 +327,7 @@ class connection():
         data = self._recieve_message(goahead=True)
         self.s.close()
         return True
+    
     def view(self,filename):
         auth = self.authenticated_start()
         self._initiate_connection()
@@ -454,6 +456,27 @@ class connection():
 
         self._send_message(self.s,token)
         self._recieve_message(goahead=True)
+
+    def edit_message(self,token,new_message):
+        auth = self.authenticated_start()
+        self._initiate_connection()
+        self._send_message(self.s,self.EDITMESSAGE)
+        self._recieve_message(goahead=True)
+        self._send_message(self.s,auth)
+        self._recieve_message(goahead=True)
+
+        self._send_message(self.s,token)
+        self._recieve_message(goahead=True)
+        a = AES(new_message)
+        new_data = a.encrypt(self.key)
+        size = self._size(new_data)
+        size *= 1.2
+        self._send_message(self.s,size)
+        self._recieve_message(goahead=True)
+        self._send_message(self.s,new_message)
+        self._recieve_message(goahead=True)
+        self.s.close()
+        return True
         
     def check_user(self,username):
         self._initiate_connection()

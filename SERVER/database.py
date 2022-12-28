@@ -152,6 +152,12 @@ class info():
         self.info_c.execute(command)
         self.info_conn.commit()
         return True
+
+    def edit_message(self,token,new_content):
+        command = f"""UPDATE Messages SET contents= "{new_content}" WHERE id= "{token}";"""
+        self.info_c.execute(command)
+        self.info_conn.commit()
+        return True
     
 class tokens():
     def __init__(self,time_limit=600):

@@ -72,7 +72,6 @@ class tokens_storage():
             content = content.split("\n")
             identifier = content[0]
             key = content[1]
-            print("utils",key)
             return identifier,key
         except:
             return False
@@ -136,6 +135,7 @@ class messages():
             self.c.execute(f"""INSERT INTO Messages (id,author,recipient,sent_time,contents)
                             VALUES ("{message.token}","{message.author}","{message.recipient}",{message.send_time},"{message.content}");""")
             self.conn.commit()
+            return True
         else:
             return False
 
@@ -181,6 +181,11 @@ class messages():
         self.c.execute(f"""DELETE FROM Messages WHERE id="{identifier}";""")
         self.conn.commit()
         return True
+
+    def edit_message(self,token,new_message):
+        self.c.execute(f"""UPDATE Messages SET contents = "{new_message}" WHERE id="{token}";""")
+        self.conn.commit()
+        return True
     
 class settings():
     def __init__(self,path="user_data/settings.xml"):
@@ -217,4 +222,4 @@ class settings():
         os.remove(self.path)
         
 if __name__== "__main__":
-    u = settings("settings.xml")
+    None

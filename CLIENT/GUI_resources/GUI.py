@@ -150,6 +150,7 @@ class GUI():
         
     def main(self):
         self.fileupload = False
+        self.editing = False
         top = tk.Tk()
         size = f"{self.resolution[0]}x{self.resolution[1]}"
         #size = "600x700"
@@ -161,7 +162,16 @@ class GUI():
         top.grid_rowconfigure(0, weight=0)
         top.grid_columnconfigure(0, weight=0)
         message = tk.StringVar()
+        self.message_box_var = message
         def send():
+            if self.editing:
+                self.value.content = message.get()
+                message_box.delete(self.num)
+                message_box.insert(self.num,f"{self.value.author}: {self.value.content} <{self.unix_to_normal_time(self.value.send_time)}>")
+                self.c.edit_message(self.value.token,message.get())
+                self.u.m.edit_message(self.value.token,message.get())
+                message.set("")
+                self.editing = False
             try:
                 friend_num = friends_box.curselection()[0]
                 friend = friends_box.get(friend_num)
@@ -244,7 +254,6 @@ class GUI():
 
             def delete(file=False):
                 if file:
-                    print("fraps")
                     info = message.content.split(",")
                     retrieval = info[1]
                     self.c.delete(retrieval)
@@ -252,7 +261,11 @@ class GUI():
                 self.u.m.delete_message(message.token)
                 message_box.delete(selected)
             def edit():#TODO
-                None
+                remove_file()
+                self.message_box_var.set(message.content)
+                self.editing = True
+                self.value = message
+                self.num = selected
             if message.content.startswith("<file>"):
                 m.add_command(label="Download",command=lambda: download(message))
                 if message.author == self.u.username:
