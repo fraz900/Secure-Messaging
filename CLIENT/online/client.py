@@ -450,7 +450,9 @@ class connection():
             send_time = self._recieve_message()
             self._send_message(self.s,self.GOAHEAD)
             token = self._recieve_message(size=self.LARGESIZE)
-            combined = message_store(author,self.USER_NAME,content,send_time,token)
+            self._send_message(self.s,self.GOAHEAD)
+            recipient = self._recieve_message()
+            combined = message_store(author,recipient,content,send_time,token)
             message_list.append(combined)
         self._send_message(self.s,self.GOAHEAD)
 

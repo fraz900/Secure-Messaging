@@ -34,7 +34,7 @@ class GUI():
             else:
                 self.login()
         else:
-            #add offline mode
+            #TODO add offline mode(?)
             self.error("Connection error, cannot connect to server.\n Please try again later")
 
     def error(self,error_message):
@@ -157,10 +157,6 @@ class GUI():
         top.title("messaging_screen")
         top.configure(bg="cyan")
         self.c.check_messages()
-        
-        #canvas=tk.Canvas(top, width=self.resolution[0], height=self.resolution[1])
-        #canvas = tk.Canvas(top,width=600,height=350)
-        #canvas.grid(row=0,column=0)
 
         top.grid_rowconfigure(0, weight=0)
         top.grid_columnconfigure(0, weight=0)
@@ -170,11 +166,11 @@ class GUI():
                 friend_num = friends_box.curselection()[0]
                 friend = friends_box.get(friend_num)
             except:
-                None#TODO add some sort of error (invalid selection)
+                return False
             recipient = friend
             if self.fileupload:
                 data = self.c.file_to_bin(self.path)
-                name = self.c.upload(data)#TODO make it work for big files
+                name = self.c.upload(data)
                 self.c.share(name,friend)
                 self.c.send_user_message(f"<file>,{name},{os.path.basename(self.path)}",friend)
                 self.fileupload = False
@@ -199,7 +195,7 @@ class GUI():
                 friend_num = friends_box.curselection()[0]
                 friend = friends_box.get(friend_num)
             except:
-                None#TODO add some sort of error (invalid selection)
+                return False
             messages_recieved = self.m.get_messages(friend)
             messages_sent = self.m.get_message_from_recipient(friend)
             messages = (messages_recieved+messages_sent)
@@ -219,7 +215,10 @@ class GUI():
         def add_friend():
             self.add_friend_window(top,friends_box)
 
-        def add_file():#TODO add size limit (8mb?)
+        def settings():
+            self.settings_window(top)
+            
+        def add_file():#TODO add size limit (8mb? (hahaha you're funny, 128kb))
             filepath = fd.askopenfilename()
             filename = os.path.basename(filepath)
             file_name.configure(text=filename)
@@ -243,7 +242,7 @@ class GUI():
             message_box.selection_set(selected)
             m = tk.Menu(message_box,tearoff=0)
             if message.content.startswith("<file>"):
-                m.add_command(label="Download",command=lambda: download(message))#TODO
+                m.add_command(label="Download",command=lambda: download(message))
                 if message.author == self.u.username:
                     m.add_separator()
                     m.add_command(label="delete")#TODO
@@ -283,8 +282,13 @@ class GUI():
             path = os.path.join(r"c:\Users\Admin\Downloads",filename)#TODO let em pick
             file = open(path,"wb")
             file.write(byte_string)
-            file.close()#TODO add notification of download completion
-            
+            file.close()
+            self.notif(top,"download complete")
+
+        def logout():
+            self.u.delete("account")
+            top.destroy()
+            self.login()
         frame = tk.Frame(top,width=400,height=100,bg="red")
         frame.grid(row=1,column=0, sticky="n")
         
@@ -324,13 +328,18 @@ class GUI():
         
         message_box = tk.Listbox(top,selectmode="single",width=100)
         message_box.grid(row=1,column=1,sticky="nsew")
-
         message_box.bind("<Button-3>", do_popup)
+
+        settings_button = tk.Button(frame,text="Settings",command=settings)
+        settings_button.grid(row=7,column=0)
+
+        logout_button = tk.Button(frame,text="Logout",command=logout)
+        logout_button.grid(row=8,column=0)
         
         top.resizable(True,True)
         top.mainloop()
 
-    def add_friend_window(self,top,friends_box):#TODO add networking to check user exists, add to a list of "chatters"
+    def add_friend_window(self,top,friends_box):
         topper = tk.Toplevel(top)
         topper.geometry("750x250")
         topper.title("Start chat")
@@ -343,7 +352,7 @@ class GUI():
                 return False
             if self.c.check_user(uname):
                 print(friends_box.size())
-                friends_box.insert((friends_box.size()),uname)#TODO testing, aggresively (minus one or not?)
+                friends_box.insert((friends_box.size()),uname)
                 topper.destroy()
             else:
                 error_lbl.configure(text="Could not find user")
@@ -359,12 +368,28 @@ class GUI():
 
         error_lbl = tk.Label(topper,text="" ,font=('calibre',10, 'bold'),fg="red")
         error_lbl.grid(row=3,column=1)
+
+    def settings_window(self,top):#TODO
+        topper = tk.Toplevel(top)
+        topper.geometry("750x250")
+        topper.title("Settings")
+
+        #download file (file explorer and entry input)
+
+
+        #Account deletion
         
     def unix_to_normal_time(self,time):
         new = datetime.datetime.fromtimestamp(time)
         timer = new.strftime("%H:%M %d/%m/%Y")
         return timer
 
+    def notif(self,top,message):
+        topper = tk.Toplevel(top)
+        topper.geometry("500x200")
+        topper.title("Notification")
+        tk.Label(topper,text=message,font=('calibre',10, 'bold')).grid(row=1.column=1)
+        
 if __name__ == "__main__":
     g = GUI()
     g.main()

@@ -62,7 +62,7 @@ class info():
         else:
             return False
 
-    def delete_user(self,username): #TODO
+    def delete_user(self,username):
         self.info_c.execute(f"""DELETE FROM Users WHERE username="{username}";""")
         self.info_conn.comit()
 

@@ -13,6 +13,8 @@ from dataclasses import dataclass
 
 class user():#stores user info and settings 
     def __init__(self):
+        self.t = tokens_storage()
+        self.m = messages()
         try:
             file = open("user_data/user_account.txt","r")
             data = file.read()
@@ -170,3 +172,5 @@ class messages():
     def delete_message(self,identifier):#TODO
         None
 
+if __name__== "__main__":
+    u = user()

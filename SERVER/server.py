@@ -701,6 +701,7 @@ class connection():
             sender = message[1]
             sent_time = message[2]
             content = message[3]
+            reciever = message[4]
             a = AES(content)
             new_data = a.encrypt(self.key)
             size = self._size(new_data)
@@ -715,6 +716,8 @@ class connection():
             self._send_message(c,sent_time)
             self._recieve_message(c)
             self._send_message(c,token)
+            self._recieve_message(c)
+            self._send_message(c,reciever)
         self._recieve_message(c)
         return True
             
