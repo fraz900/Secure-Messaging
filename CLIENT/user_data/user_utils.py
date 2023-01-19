@@ -1,11 +1,3 @@
-##########
-# SCPOPE
-# -User info access (txt)
-# -User message access (sql)
-# -User settings (XML,JSON???)
-# -Generics (e.g. pfp etc)
-###########
-
 import sqlite3
 import os
 import time

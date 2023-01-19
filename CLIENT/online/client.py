@@ -1,4 +1,3 @@
-#TODO p2p
 import socket
 import hashlib
 import time
@@ -35,6 +34,8 @@ class connection():
         self.CHECK_USER = "cu"
         self.DELETEMESSAGE = "dm"
         self.EDITMESSAGE= "em"
+        self.ISSUE2FA = "it"
+        self.RESETPASSWORD = "rp"
         #responses
         self.GOAHEAD = "200"
         self.AUTHERROR = "401"
@@ -188,7 +189,7 @@ class connection():
             self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             return True
         
-    def create_account(self,username,password):
+    def create_account(self,username,password,email):
         hasher = hashlib.sha256()
         hasher.update(password.encode())
         password = hasher.hexdigest()
@@ -199,6 +200,7 @@ class connection():
         while not correct:
             self._send_message(self.s,username)
             self._send_message(self.s,password)
+            self._send_message(self.s,email)
             user_test = self._recieve_message()
             password_test = self._recieve_message(size=self.LARGESIZE)
             if user_test == username and password_test == password:
@@ -488,7 +490,33 @@ class connection():
             return True
         return False
 
+    def issue_2fa_code(self,username):
+        self._initiate_connection()
+        self._send_message(self.s,self.ISSUE2FA)
+        self._recieve_message(goahead=True)
+        self._send_message(self.s,username)
+        self._recieve_message(goahead=True)
 
+        self._recieve_message(goahead=True)
+        return True
+
+    def reset_password(self,username,new_password,code):
+        hasher = hashlib.sha256()
+        hasher.update(new_password.encode())
+        new_password = hasher.hexdigest()
+        
+        self._initiate_connection()
+        self._send_message(self.s,self.RESETPASSWORD)
+        self._recieve_message(goahead=True)
+        self._send_message(self.s,username)
+        self._recieve_message(goahead=True)
+
+        self._send_message(self.s,code)
+        self._recieve_message(goahead=True)
+        self._send_message(self.s,new_password)
+        self._recieve_message(goahead=True)
+        return True
+    
     def file_to_bin(self,filename):
         bytetable = [("00000000"+bin(x)[2:])[-8:] for x in range(256)]
         binrep = "".join(bytetable[x] for x in open(filename, "rb").read())

@@ -61,7 +61,6 @@ class GUI():
         passw_var=tk.StringVar()
         def handler():
             threading.Thread(target=start_loading).start()
-            #start_loading()
             t = threading.Thread(target=submit).start()
             try:
                 t.join()
@@ -82,25 +81,28 @@ class GUI():
             
             name_var.set("")
             passw_var.set("")
-        def register():#TODO add username taken error
-            name=name_var.get()
-            password=passw_var.get()
-            check = self.c.create_account(name,password)
-            if check:
-                login_error.config(text="Account created",fg="green")
-                self.u.create(name,self.c._hash(password))
-                time.sleep(1)
-                top.destroy()
-                self.main()
-            else:
-                login_error.config(text="Error creating account",fg="red")
+        def register():
+            self.register_account()
+            top.destroy()
+        def forgot_password(dummy):
+            username = name_var.get()
+            if username == "":
+                login_error.config(text="Please enter a valid username to send a reset link",fg="red")
+                return False
+            if not self.c.check_user(username):
+                login_error.config(text="Please enter a valid username to send a reset link",fg="red")
+                return False
+            self.c.issue_2fa_code(username)
+            top.destroy()
+            self.forgot_pword(username)
+            
         txt_frm = tk.Frame(top,width=400,height=250)
         txt_frm.grid(row=0,column=0, sticky="n")
         name_label = tk.Label(txt_frm, text = 'Username', font=('calibre',10, 'bold'))  
         name_entry = tk.Entry(txt_frm,textvariable = name_var, font=('calibre',10,'normal'))
         passw_label = tk.Label(txt_frm, text = 'Password', font = ('calibre',10,'bold'))
         passw_entry = tk.Entry(txt_frm, textvariable = passw_var, font = ('calibre',10,'normal'), show = '*')
-        sub_btn=tk.Button(txt_frm,text = 'Submit', command = handler)
+        sub_btn=tk.Button(txt_frm,text = 'Login', command = handler)
         reg_btn = tk.Button(txt_frm,text="Register",command=register)
         
         login_error = tk.Label(txt_frm,text="",font=("calibre",10))
@@ -109,7 +111,8 @@ class GUI():
 
         resized_image= logo_image.resize((300,205), Image.ANTIALIAS)
         new_image= ImageTk.PhotoImage(resized_image)
-
+        link = tk.Label(txt_frm,text="Forgot Password?",font=('Helveticabold', 8), fg="blue", cursor="hand2")
+        
         photo = ImageTk.PhotoImage(resized_image)
         label = tk.Label(txt_frm, image = photo)
         label.image = photo
@@ -120,8 +123,10 @@ class GUI():
         passw_entry.grid(row=2,column=1)
         sub_btn.grid(row=3,column=1)
         reg_btn.grid(row=5,column=1)
+        link.grid(row=6,column=1)
         login_error.grid(row=4,column=1)
-
+        
+        link.bind("<Button-1>",forgot_password)
         imagelist = []
         things = os.listdir("GUI_resources/assets/loading")
         for item in things:
@@ -143,17 +148,124 @@ class GUI():
         def end_loading():
             global repeat
             repeat = False
-        #start_loading()
         top.resizable(False,False)
         top.mainloop()
 
+    def forgot_pword(self,username):
+        top = tk.Tk()
+        top.title="Forgot Password"
+        
+        top.geometry("500x450")
+
+        pword_var = tk.StringVar()
+        code_var = tk.StringVar()
+        def reset():
+            new_pword = pword_var.get()
+            code = code_var.get()
+            try:
+                self.c.reset_password(username,new_pword,code)
+                error_label.configure(text="Password reset",fg="green")
+            except:
+                error_label.configure(text="Password reset failed",fg="red")
+        def on_closing():
+            top.destroy()
+            self.login()
+        txt_frm = tk.Frame(top,width=400,height=250)
+        txt_frm.grid(row=0,column=0, sticky="n")
+        greeting = tk.Label(txt_frm, text = f"{username}'s password reset", font=('calibre',10, 'bold'))
+        new_password_label = tk.Label(txt_frm, text = 'New Password', font=('calibre',10, 'bold'))  
+        new_password_entry = tk.Entry(txt_frm,textvariable = pword_var, font=('calibre',10,'normal'), show = '*')
+        code_label = tk.Label(txt_frm, text = 'Email Verification Code', font = ('calibre',10,'bold'))
+        code_entry = tk.Entry(txt_frm, textvariable = code_var, font = ('calibre',10,'normal'))
+        error_label = tk.Label(txt_frm,text="",font=('calibre',10,'bold'))
+        submission_button = tk.Button(txt_frm,text = 'Submit', command = reset)
+        
+        greeting.grid(row=0,column=0)
+        new_password_label.grid(row=1,column=0)
+        new_password_entry.grid(row=1,column=1)
+        code_label.grid(row=2,column=0)
+        code_entry.grid(row=2,column=1)
+        submission_button.grid(row=3,column=1)
+        error_label.grid(row=4,column=1)
+
+        top.protocol("WM_DELETE_WINDOW",on_closing)
+        
+    def register_account(self):
+        top = tk.Tk()
+        top.title("Register Account")
+        canvas=tk.Canvas(top, width=400, height=500)
+        canvas.grid(row=1,column=0)
+
+        top.geometry("450x500")
+        frame = tk.Frame(top)
+        name_var = tk.StringVar()
+        passw_var = tk.StringVar()
+        email_var = tk.StringVar()
+
+        def register():
+            name = name_var.get()
+            password = passw_var.get()
+            email = email_var.get()
+            check = check_email_is_valid(email)
+            if not check:
+                registration_error.config(text="Invalid Email Address",fg="red")
+                return False
+            try:
+                self.c.create_account(name,password,email)
+            except Exception:
+               registration_error.config(text="Username Taken",fg="red")
+               return False
+            registration_error.config(text="Account created",fg="green")
+            self.u.create(name,self.c._hash(password))
+            time.sleep(1)
+            top.destroy()
+            self.main()
+        def check_email_is_valid(email):
+            first = re.search("^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$",email)
+            second = re.search("^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}[.]\w{2,3}$",email)
+            if first or second:
+                return True
+            return False
+            
+        txt_frm = tk.Frame(top,width=400,height=250)
+        txt_frm.grid(row=0,column=0, sticky="n")
+        name_label = tk.Label(txt_frm, text = 'Username', font=('calibre',10, 'bold'))  
+        name_entry = tk.Entry(txt_frm,textvariable = name_var, font=('calibre',10,'normal'))
+        passw_label = tk.Label(txt_frm, text = 'Password', font = ('calibre',10,'bold'))
+        passw_entry = tk.Entry(txt_frm, textvariable = passw_var, font = ('calibre',10,'normal'), show = '*')
+        email_label = tk.Label(txt_frm,text="Email",font=('calibre',10, 'bold'))
+        email_entry = tk.Entry(txt_frm,textvariable=email_var,font=('calibre',10, 'normal'))
+
+        sub_btn=tk.Button(txt_frm,text = 'Register', command = register)
+        
+        registration_error = tk.Label(txt_frm,text="",font=("calibre",10))
+
+        logo_image = Image.open("GUI_resources/assets/ball.png")
+
+        resized_image= logo_image.resize((300,205), Image.ANTIALIAS)
+        new_image= ImageTk.PhotoImage(resized_image)
+
+        photo = ImageTk.PhotoImage(resized_image)
+        label = tk.Label(txt_frm, image = photo)
+        label.image = photo
+        label.grid(row=0,column=1)
+        name_label.grid(row=1,column=0)
+        name_entry.grid(row=1,column=1)
+        passw_label.grid(row=2,column=0)
+        passw_entry.grid(row=2,column=1)
+        email_label.grid(row=3,column=0)
+        email_entry.grid(row=3,column=1)
+        sub_btn.grid(row=4,column=1)
+        registration_error.grid(row=5,column=1)
+        
+    def reset_password(self):
+        None#TODO
         
     def main(self):
         self.fileupload = False
         self.editing = False
         top = tk.Tk()
         size = f"{self.resolution[0]}x{self.resolution[1]}"
-        #size = "600x700"
         top.geometry(size)
         top.title("messaging_screen")
         top.configure(bg="cyan")
@@ -260,7 +372,7 @@ class GUI():
                 self.c.delete_message(message.token)
                 self.u.m.delete_message(message.token)
                 message_box.delete(selected)
-            def edit():#TODO
+            def edit():
                 remove_file()
                 self.message_box_var.set(message.content)
                 self.editing = True
@@ -482,4 +594,4 @@ class GUI():
 if __name__ == "__main__":
     g = GUI()
     g.main()
-    #g.login()
+

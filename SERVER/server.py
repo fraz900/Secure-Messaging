@@ -9,6 +9,7 @@ import time
 from textwrap import wrap
 from database import tokens,info
 from encryption import DH,AES
+from tfa import Email
 class connection():
     def __init__(self):
         #network things
@@ -42,6 +43,8 @@ class connection():
         self.CHECK_USER = "cu"
         self.DELETEMESSAGE = "dm"
         self.EDITMESSAGE= "em"
+        self.ISSUE2FA = "it"
+        self.RESETPASSWORD = "rp"
         #other
         self.LARGESIZE = 20000
         self.VERYLARGESIZE = 100000
@@ -49,6 +52,7 @@ class connection():
         self.TIMEOUT = 20
         self.t = tokens()
         self.i = info(timeout=self.KEYTIMEOUT)
+        self.e = Email()
         
     def start(self)->None:
         print("online")
@@ -152,6 +156,10 @@ class connection():
                 self.delete_message(c)
             case self.EDITMESSAGE:
                 self.edit_message(c)
+            case self.ISSUE2FA:
+                self.issue_2FA(c)
+            case self.RESETPASSWORD:
+                self.reset_password(c)
             case _:
                 print("command",command)
                 self._send_message(c,self.FAILURE)
@@ -570,6 +578,7 @@ class connection():
             counter += 1
             username = self._recieve_message(user)
             password = self._recieve_message(user,size=self.LARGESIZE)#quickfix
+            email_address = self._recieve_message(user,size=self.LARGESIZE)
             self._send_message(user,username)
             self._send_message(user,password)
             check = self._recieve_message(user)
@@ -583,7 +592,7 @@ class connection():
             return
         self._send_message(user,self.GOAHEAD)
         user.close()
-        self.i.add_user(username,password)
+        self.i.add_user(username,password,email_address)
         os.chdir("data")
         os.mkdir(username)
         os.chdir(username)
@@ -784,6 +793,43 @@ class connection():
             return False
         self._send_message(c,self.GOAHEAD)
         return True
+
+    
+    def issue_2FA(self,c):
+        self._send_message(c,self.GOAHEAD)
+        username = self._recieve_message(c)
+        if not self.i.check_user(username):
+            self._send_message(c,self.FAILURE)
+            c.close()
+            return False
+        self._send_message(c,self.GOAHEAD)
+        code = secrets.randbits(20)
+        address = self.i.get_email(username)
+        self.e.send_code(address,code)
+        self.i.add_2fa_code(code,username)
+        self._send_message(c,self.GOAHEAD)
+        c.close()
+        return True
+        
+    def reset_password(self,c):
+        self._send_message(c,self.GOAHEAD)
+        username = self._recieve_message(c)
+        if not self.i.check_user(username):
+            self._send_message(c,self.FAILURE)
+            c.close()
+            return False
+        self._send_message(c,self.GOAHEAD)
+        code = self._recieve_message(c)
+        check = self.i.check_2fa_code(code)
+        if (not check) or check != username:
+            self._send_message(c,self.FAILURE)
+            c.close()
+            return False
+        self._send_message(c,self.GOAHEAD)
+        new_pass = self._recieve_message(c,size=self.LARGESIZE)
+        self.i.change_password(new_pass,username)
+        self._send_message(c,self.GOAHEAD)
+        
 if __name__ == "__main__":
     a = connection()
     a.monitor_auth(3600)

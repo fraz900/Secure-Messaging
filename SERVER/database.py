@@ -12,8 +12,9 @@ class info():
         self.info_c = self.info_conn.cursor()
         command = """CREATE TABLE IF NOT EXISTS Users (
                     username string PRIMARY KEY,
-                    password string NOT NULL,
-                    account_creation_time real NOT NULL);"""
+                    password string,
+                    account_creation_time real NOT NULL,
+                    email_address string);"""
         self.info_c.execute(command)
 
         command = """CREATE TABLE IF NOT EXISTS Logins(
@@ -43,20 +44,45 @@ class info():
                     FOREIGN KEY(owner) REFERENCES Users(username),
                     FOREIGN KEY (IP_address) REFERENCES Logins(IP_address));"""
         self.info_c.execute(command)
+        
+        command = """CREATE TABLE IF NOT EXISTS TFA_codes(
+                    code string PRIMARY KEY,
+                    user string NOT NULL,
+                    creation_time real NOT NULL,
+                    FOREIGN KEY(user) REFERENCES Users(username));"""
+
+        self.info_c.execute(command)
         self.timeout = timeout
+        self.cleanup()
         
     def __repr__(self):
-        self.info_c.execute("SELECT * FROM Messages")
+        self.info_c.execute("SELECT * FROM TFA_codes")
         rows = self.info_c.fetchall()
         for row in rows:
             print(row)
         return ""
 
-    def add_user(self,uname,pword):
+    def add_2fa_code(self,code,user):#TODO cleanup 
+        current_time = time.time()
+        command = f"""INSERT INTO TFA_codes (code,user,creation_time)
+                    VALUES("{code}","{user}",{current_time});"""
+        self.info_c.execute(command)
+        self.info_conn.commit()
+        return True
+
+    def check_2fa_code(self,code):
+        current_time = time.time()
+        self.info_c.execute(f"""SELECT user FROM TFA_codes WHERE code="{code}" AND ({current_time}-creation_time)<{self.timeout} ;""")
+        rows = self.info_c.fetchall()
+        if len(rows) == 0:
+            return False
+        else:
+            return rows[0][0]
+    def add_user(self,uname,pword,email):
         current_time = time.time()
         if not self.check_user(uname):
-            self.info_c.execute(f"""INSERT INTO Users (username,password,account_creation_time)
-            VALUES ("{uname}","{pword}",{current_time});""")
+            self.info_c.execute(f"""INSERT INTO Users (username,password,account_creation_time,email_address)
+            VALUES ("{uname}","{pword}",{current_time},"{email}");""")
             self.info_conn.commit()
             return True
         else:
@@ -66,6 +92,13 @@ class info():
         self.info_c.execute(f"""DELETE FROM Users WHERE username="{username}";""")
         self.info_conn.comit()
 
+    def get_email(self,username):
+        self.info_c.execute(f"""SELECT email_address FROM Users WHERE username="{username}";""")
+        rows = self.info_c.fetchall()
+        if len(rows) == 0:
+            return False
+        else:
+            return rows[0][0]
     def check_user(self,username): #returns tuple of format (username,password,creation_time)
         command = f"""SELECT * FROM Users WHERE username="{username}";"""
         self.info_c.execute(command)
@@ -75,6 +108,7 @@ class info():
         else:
             return rows[0]
 
+    
     def log_login(self,IP,username):
         current_time = time.time()
         self.info_c.execute(f"""INSERT INTO Logins(IP_address,time,username)
@@ -107,6 +141,10 @@ class info():
         current_time = time.time()
         command = f"""DELETE FROM Auth_Codes WHERE
                     ({current_time} - creation_time) > {time_limit}"""
+        self.info_c.execute(command)
+        self.info_conn.commit()
+
+        command = f"""DELETE FROM TFA_codes WHERE ({current_time} - creation_time)>{time_limit}"""
         self.info_c.execute(command)
         self.info_conn.commit()
 
@@ -156,6 +194,10 @@ class info():
     def edit_message(self,token,new_content):
         command = f"""UPDATE Messages SET contents= "{new_content}" WHERE id= "{token}";"""
         self.info_c.execute(command)
+        self.info_conn.commit()
+        return True
+    def change_password(self,pword,user):
+        self.info_c.execute(f"""UPDATE Users SET password="{pword}" WHERE username="{user}";""")
         self.info_conn.commit()
         return True
     
@@ -215,10 +257,14 @@ class tokens():
     def close(self):
         self.token_c.close()
         self.token_conn.close()
-        
+
+
+
+     
 if __name__ == "__main__":
-    i = info()
-    print(i.get_messages_from_user("tester",0))
-    #print(i)
+    j = info()
+    #j.info_c.execute("""SELECT password FROM Users,TFA_codes WHERE Users.username=TFA_codes.user AND TFA_codes.code="737609";""")
+    #print(j.info_c.fetchall())
+    print(j)
 
 
