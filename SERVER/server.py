@@ -24,6 +24,7 @@ class connection():
         self.INVALID = "501"
         #files
         self.MANIFEST = "manifest.txt"
+        self.files_path = open("client_path.txt","r").read()
         #commands
         self.REFRESHAUTH = "rac"
         self.CREATEACCOUNT = "ca"
@@ -45,6 +46,7 @@ class connection():
         self.EDITMESSAGE= "em"
         self.ISSUE2FA = "it"
         self.RESETPASSWORD = "rp"
+        self.INSTALL = "in"
         #other
         self.LARGESIZE = 20000
         self.VERYLARGESIZE = 100000
@@ -89,6 +91,8 @@ class connection():
                     self.ping(c)
                 case self.USE_KEY:
                     self.use_key(c,ip)
+                case self.INSTALL:
+                    self.installer(c)
                 case _:
                     self.log(ip,f"unknown command {command}")
             print(command)
@@ -829,9 +833,55 @@ class connection():
         new_pass = self._recieve_message(c,size=self.LARGESIZE)
         self.i.change_password(new_pass,username)
         self._send_message(c,self.GOAHEAD)
-        
+
+    def installer(self,c):
+        data_files,name_files = self._file_check(self.files_path)
+        self._send_message(c,len(data_files)+len(name_files),setup=True)
+        self._recieve_message(c,setup=True)
+        self._send_message(c,"names",setup=True)
+        self._recieve_message(c,setup=True)
+        for name in name_files:
+            self._send_message(c,name[1],setup=True)
+            self._recieve_message(c,setup=True)
+        self._send_message(c,"data",setup=True)
+        self._recieve_message(c,setup=True)
+        for name in data_files:
+            self._send_message(c,name[1],setup=True)
+            self._recieve_message(c,setup=True)
+            with open(name[0],"rb") as file:
+                while True:
+                    bytes_read = file.read(4096)
+                    if not bytes_read:
+                        self._send_message(c,"end",setup=True)
+                        break
+                    c.sendall(bytes_read)
+                    print("sent : <File data>")
+                    self._recieve_message(c,setup=True)
+        self._send_message(c,"finished",setup=True)
+        self._recieve_message(c,setup=True)
+        c.close()
+        return True
+    
+    def _file_check(self,path):#RECURSION
+        things = os.listdir(path)
+        data_ext = [".py",".png",".gif"]
+        data_paths = []
+        name_paths = []
+        for thing in things:
+            check = os.path.splitext(thing)
+            if check[1] == "":
+                results = self._file_check(os.path.join(path,thing))
+                if results[0] != []:
+                    data_paths += results[0]
+                if results[1] != []:
+                    name_paths += results[1]
+            else:
+                if check[1] in data_ext:
+                    data_paths.append((os.path.join(path,thing),os.path.relpath(os.path.join(path,thing),self.files_path)))
+                elif check[1] != ".pyc":
+                    name_paths.append((os.path.join(path,thing),os.path.relpath(os.path.join(path,thing),self.files_path)))
+        return (data_paths,name_paths)
 if __name__ == "__main__":
     a = connection()
     a.monitor_auth(3600)
     a.start()
-
