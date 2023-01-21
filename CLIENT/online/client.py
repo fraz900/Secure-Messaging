@@ -261,7 +261,9 @@ class connection():
                 self.AUTHCODE = None
                 self.upload(data,name,recurse=True)
         self._send_message(self.s,shared_state)
-        self._recieve_message()
+        self._recieve_message(goahead=True)
+        self._send_message(self.s,_data_hash(data_to_send))
+        self._recieve_message(goahead=True)
         size = self._size(data_to_send)
         size *= 50
         self._send_message(self.s,size)
@@ -529,7 +531,21 @@ class connection():
             b.append(v & 0xff)
             v >>= 8
         return bytes(b[::-1])
-    
+
+    def _file_hash(self,path):
+        hasher = hashlib.sha256()
+        file = open(path,"rb")
+        while True:
+            data = f.read(65536)
+            if not data:
+                break
+            hasher.update(data)
+        file.close()
+        return hasher.hexdigest()
+
+    def _data_hash(self,data):
+        hasher = haslib.sha256().update(data)
+        return hasher.hexdigest()
 if __name__ == "__main__":      
     c = connection()
     file_test = True

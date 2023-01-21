@@ -257,6 +257,7 @@ class connection():
         return username
     
     def upload_data(self,user):
+        #Recieve user/file info and the actual data
         username = self._authenticate(user)
         if not username:
             user.close()
@@ -266,6 +267,9 @@ class connection():
         if shared_state == "shared":
             shared = True
         self._send_message(user,self.GOAHEAD)
+        hash_value = self._recieve_message(user,size=self.LARGESIZE)
+        self._send_message(user,self.GOAHEAD)
+        
         size = int(self._recieve_message(user))
         maximum = round(size/5096) + 3
         self._send_message(user,self.GOAHEAD)
@@ -279,6 +283,18 @@ class connection():
                 count += 1
                 complete += data
                 self._send_message(user,self.GOAHEAD)
+        #Add file to user's manifest
+        os.chdir(os.path.split(__file__)[0])
+        os.chdir("data")
+        os.chdir(username)
+        self._send_message(user,name)
+        current_time = time.time()
+        file = open(self.MANIFEST,"a")
+        entry = f"{name},{current_time},{shared_state}\n"
+        file.write(entry)
+        file.close()
+        os.chdir(os.path.split(__file__)[0])
+        #Save the data in the appropriate place
         os.chdir("data")
         if not shared:
             os.chdir(username)
@@ -291,6 +307,11 @@ class connection():
             file = open(name,"w")
             file.write(complete)
             file.close()
+            if self._file_hash(name) != hash_value:
+                self._deleter(username,name)
+                self._send_message(user,self.FAILURE)
+                user.close()
+                return False
         else:
             os.chdir("shared")
             files = os.listdir()
@@ -306,15 +327,6 @@ class connection():
             entry = f"{username}\n"
             file.write(entry)
             file.close()
-        os.chdir(os.path.split(__file__)[0])
-        os.chdir("data")
-        os.chdir(username)
-        self._send_message(user,name)
-        current_time = time.time()
-        file = open(self.MANIFEST,"a")
-        entry = f"{name},{current_time},{shared_state}\n"
-        file.write(entry)
-        file.close()
         return True
 
     def monitor_auth(self,timer,seperate=False):
@@ -386,6 +398,19 @@ class connection():
             self._send_message(user,self.NOTFOUND)
             user.close()
             return False
+        os.chdir(os.path.split(__file__)[0])
+        self._deleter(username,filename)
+        self._send_message(user,self.GOAHEAD)
+        user.close()
+        
+        return True
+
+    def _deleter(self,username,filename):
+        os.chdir("data")
+        os.chdir(username)
+        file = open(self.MANIFEST,"r")
+        content = file.read()
+        file.close()
         content = content.split("\n")
         done = False
         for line in content:
@@ -415,10 +440,10 @@ class connection():
         os.chdir(os.path.split(__file__)[0])
         os.chdir("data")
         os.chdir(username)
+        
         if not done:
             os.remove(filename)
-        self._send_message(user,self.GOAHEAD)
-        user.close()
+
         file = open(self.MANIFEST,"r")
         content = file.read()
         file.close()
@@ -881,6 +906,19 @@ class connection():
                 elif check[1] != ".pyc":
                     name_paths.append((os.path.join(path,thing),os.path.relpath(os.path.join(path,thing),self.files_path)))
         return (data_paths,name_paths)
+
+    def _file_hash(self,path):
+        hasher = hashlib.sha256()
+        file = open(path,"rb")
+        while True:
+            data = f.read(65536)
+            if not data:
+                break
+            hasher.update(data)
+        file.close()
+        return hasher.hexdigest()
+
+    
 if __name__ == "__main__":
     a = connection()
     a.monitor_auth(3600)
