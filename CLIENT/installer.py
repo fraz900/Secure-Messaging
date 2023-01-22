@@ -88,11 +88,14 @@ def main():
         success_indicator.configure(text="Download finished",fg="green")
         if shortcut.get() == 1:
             import win32com.client
+            icon = os.path.join(INSTALL_LOCATION,r"GUI_resources\assets\icon.ico")
             pather = os.path.join(str(pathlib.Path.home() / "Desktop"),"Secure Messaging.lnk")
             target = main_file
             shell = win32com.client.Dispatch("Wscript.Shell")
             shortcut = shell.CreateShortCut(pather)
             shortcut.Targetpath = target
+            shortcut.IconLocation = icon
+            shortcut.WorkingDirectory = INSTALL_LOCATION
             shortcut.save()
         if start_after.get() == 1:
             os.startfile(main_file,cwd=os.path.split(main_file)[0])

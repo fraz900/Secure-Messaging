@@ -889,7 +889,7 @@ class connection():
     
     def _file_check(self,path):#RECURSION
         things = os.listdir(path)
-        data_ext = [".py",".png",".gif"]
+        data_ext = [".py",".png",".gif",".ico"]
         data_paths = []
         name_paths = []
         for thing in things:

@@ -53,6 +53,31 @@ class user():#stores user info and settings
         self.s.delete()
         self.m.reset()
 
+    def export(self):
+        tree = ET.parse(self.s.path)
+        root = tree.getroot()
+        profile_details = ET.SubElement(root,"user_details")
+        ET.SubElement(profile_details,"username").text = self.username
+        ET.SubElement(profile_details,"password").text = self.pass_hash
+        tree.write(os.path.join(self.s.download_folder,"user_account_profile.xml"),encoding='UTF-8',xml_declaration=True)
+        return True
+        
+    def import_settings(self,path):
+        try:
+            tree = ET.parse(path)
+            root = tree.getroot()
+            user_details = root.find("user_details")
+            uname = user_details.find("username").text
+            pword = user_details.find("password").text
+            root.remove(user_details)
+            tree.write(self.s.path)
+            self.s = settings()
+            self.create(uname,pword)
+        except Exception as e:
+            raise Exception("invalid file")
+            
+
+            
 class tokens_storage():
     def __init__(self):
         None

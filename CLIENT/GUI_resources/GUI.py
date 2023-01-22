@@ -66,6 +66,18 @@ class GUI():
                 t.join()
             except:
                 None
+
+        def import_account():
+            filepath = fd.askopenfilename()
+            if not filepath:
+                return False
+            try:
+                self.u.import_settings(filepath)
+                top.destroy()
+                self.start()
+            except:
+                login_error.config("Invalid account file",fg="red")
+                
         def submit():
             name=name_var.get()
             password=passw_var.get()
@@ -104,7 +116,8 @@ class GUI():
         passw_entry = tk.Entry(txt_frm, textvariable = passw_var, font = ('calibre',10,'normal'), show = '*')
         sub_btn=tk.Button(txt_frm,text = 'Login', command = handler)
         reg_btn = tk.Button(txt_frm,text="Register",command=register)
-        
+
+        import_account_button = tk.Button(txt_frm,text="Import User Account",command=import_account)
         login_error = tk.Label(txt_frm,text="",font=("calibre",10))
 
         logo_image = Image.open("GUI_resources/assets/ball.png")
@@ -122,9 +135,11 @@ class GUI():
         passw_label.grid(row=2,column=0)
         passw_entry.grid(row=2,column=1)
         sub_btn.grid(row=3,column=1)
-        reg_btn.grid(row=5,column=1)
-        link.grid(row=6,column=1)
-        login_error.grid(row=4,column=1)
+        reg_btn.grid(row=4,column=1)
+        import_account_button.grid(row=6,column=1)
+        link.grid(row=5,column=1)
+        login_error.grid(row=9,column=1)
+
         
         link.bind("<Button-1>",forgot_password)
         imagelist = []
@@ -226,7 +241,7 @@ class GUI():
             if first or second:
                 return True
             return False
-            
+
         txt_frm = tk.Frame(top,width=400,height=250)
         txt_frm.grid(row=0,column=0, sticky="n")
         name_label = tk.Label(txt_frm, text = 'Username', font=('calibre',10, 'bold'))  
@@ -240,15 +255,6 @@ class GUI():
         
         registration_error = tk.Label(txt_frm,text="",font=("calibre",10))
 
-        logo_image = Image.open("GUI_resources/assets/ball.png")
-
-        resized_image= logo_image.resize((300,205), Image.ANTIALIAS)
-        new_image= ImageTk.PhotoImage(resized_image)
-
-        photo = ImageTk.PhotoImage(resized_image)
-        label = tk.Label(txt_frm, image = photo)
-        label.image = photo
-        label.grid(row=0,column=1)
         name_label.grid(row=1,column=0)
         name_entry.grid(row=1,column=1)
         passw_label.grid(row=2,column=0)
@@ -258,8 +264,7 @@ class GUI():
         sub_btn.grid(row=4,column=1)
         registration_error.grid(row=5,column=1)
         
-    def reset_password(self):
-        None#TODO
+        top.protocol("WM_DELETE_WINDOW",on_closing)
         
     def main(self):
         self.fileupload = False
@@ -521,7 +526,10 @@ class GUI():
             download_path_entry.insert(0,filepath)
             download_path_entry.xview_moveto(1)
             download_path_entry.configure(state=tk.DISABLED)
-            
+
+        def export_settings():
+            self.u.export()
+            self.notif(topper,"Settings exported to download folder")
         def text_colour():
             check = get_colour(self.u.s.text_colour)
             if not check:
@@ -579,6 +587,8 @@ class GUI():
         account_delete_button = tk.Button(topper,text="Delete Account",command=delete_account)
         account_delete_button.grid(row=4,column=0)
 
+        export_settings_button = tk.Button(topper,text="Export User Profile",command=export_settings)
+        export_settings_button.grid(row=5,column=0)
         
     def unix_to_normal_time(self,time):
         new = datetime.datetime.fromtimestamp(time)
