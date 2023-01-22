@@ -315,7 +315,6 @@ class GUI():
             top.destroy()
 
         def messages():
-                    
             message_box.delete(0,(message_box.size()-1))
             
             try:
@@ -431,6 +430,9 @@ class GUI():
             self.u.delete("account")
             top.destroy()
             self.login()
+        def messager(dummy=""):
+            self.c.check_messages()
+            messages()
         frame = tk.Frame(top,width=400,height=100,bg="red")
         frame.grid(row=1,column=0, sticky="n")
         
@@ -472,6 +474,7 @@ class GUI():
         message_box.grid(row=1,column=1,sticky="nsew")
         message_box.bind("<Button-3>", do_popup)
 
+        top.bind("<Control-r>",messager)
         settings_button = tk.Button(frame,text="Settings",command=settings)
         settings_button.grid(row=7,column=0)
 
@@ -601,6 +604,7 @@ class GUI():
         topper.title("Notification")
         tk.Label(topper,text=message,font=('calibre',10, 'bold')).grid(row=1,column=1)
         tk.Button(topper,text="exit",command = lambda: topper.destroy()).grid(row=2,column=1)
+
 if __name__ == "__main__":
     g = GUI()
     g.main()
