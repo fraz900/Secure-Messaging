@@ -304,9 +304,47 @@ class DH():
         A = (base**a) % modulus
         return A
 
+
+class RSA():#very simplified implementation
+    def __init__(self):
+        None
+
+    def generate_prime(self):
+        return DH().generate_prime(length=1024)#255 characters max length
+
+    def generate_keys(self):
+        #Returns (public_key,private_key)
+        prime1 = self.generate_prime()
+        prime2 = self.generate_prime()
+        totient = (prime1 - 1) * (prime2 - 1)
+        public = prime1*prime2
+        private = self.multinv(totient,65537)
+        return public,private
+    
+    def multinv(self,modulus,value):#TODO make it look less stupid
+        #multiplicative inverse in a given modulus
+        #calculated with the extended euclidean algorithm
+        x, lastx = 0, 1
+        a, b = modulus, value
+        while b:
+            a, q, b = b, a // b, a % b
+            x, lastx = lastx - q * x, x
+        result = (1 - lastx * modulus) // value
+        return result + modulus if result < 0 else result
+
+    def encryptor(self,data,key):
+        message = data.encode()
+        length = len(message)
+        message = int.from_bytes(message,"big")
+        return length,pow(message,65537,key)
+
+    def decryptor(self,data,length,pubkey,privkey):
+        decrypted = pow(data,privkey,pubkey)
+        plaintext = int.to_bytes(decrypted,length,"big")
+        return plaintext.decode()
     
 if __name__ == "__main__":
-    check = "AES" #or "AES"
+    check = "RSA" #or "DH" or "AES"
     if check == "AES":
         test_string = "this is a test string"
         print(len(test_string.encode('utf-8')))
@@ -328,4 +366,17 @@ if __name__ == "__main__":
         test = a.equation(123,key,modulus)
         print(test)
         #print(a.prim_root(modulus))
-       
+    elif check == "RSA":
+        r = RSA()
+        pub,priv = r.generate_keys()
+        test_string = "a"
+        lenner = 1
+        while True:
+            try:
+                length,a = r.encryptor(test_string,pub)
+                print(a)
+                print(r.decryptor(a,length,pub,priv))
+                lenner += 1
+                test_string += "a"
+            except:
+                print("max length:",lenner)

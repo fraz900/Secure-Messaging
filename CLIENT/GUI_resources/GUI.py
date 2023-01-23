@@ -9,6 +9,7 @@ import time
 import threading
 import ctypes
 import datetime
+import re
 
 class GUI():
 
@@ -94,8 +95,9 @@ class GUI():
             name_var.set("")
             passw_var.set("")
         def register():
-            self.register_account()
             top.destroy()
+            self.register_account()
+            
         def forgot_password(dummy):
             username = name_var.get()
             if username == "":
@@ -221,6 +223,7 @@ class GUI():
             name = name_var.get()
             password = passw_var.get()
             email = email_var.get()
+            print(email,password,name)
             check = check_email_is_valid(email)
             if not check:
                 registration_error.config(text="Invalid Email Address",fg="red")
@@ -236,6 +239,7 @@ class GUI():
             top.destroy()
             self.main()
         def check_email_is_valid(email):
+            print(email)
             first = re.search("^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$",email)
             second = re.search("^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}[.]\w{2,3}$",email)
             if first or second:
@@ -264,7 +268,8 @@ class GUI():
         sub_btn.grid(row=4,column=1)
         registration_error.grid(row=5,column=1)
         
-        top.protocol("WM_DELETE_WINDOW",on_closing)
+        top.mainloop()
+        #top.protocol("WM_DELETE_WINDOW",on_closing)
         
     def main(self):
         self.fileupload = False
@@ -413,7 +418,7 @@ class GUI():
             token_label = tk.Label(topper,text=f"ID Token: {message.token}" ,font=('calibre',10, 'bold'))
             token_label.grid(row=4,column=0)
 
-        def download(message):#TODO consider threading?
+        def download(message):#TODO consider threading? +interdeminate loading
             info = message.content.split(",")
             retrieval = info[1]
             filename = info[2]
@@ -433,12 +438,17 @@ class GUI():
         def messager(dummy=""):
             self.c.check_messages()
             messages()
+
+        def character_limit(entry_text):
+            if len(message.get())>0:
+                message.set(entry_text.get()[:255])
         frame = tk.Frame(top,width=400,height=100,bg="red")
         frame.grid(row=1,column=0, sticky="n")
         
         message_entry = tk.Entry(frame,textvariable = message, font=('calibre',10,'normal'))
         message_entry.grid(row=1,column=0)
-
+        message.trace("w",lambda *args: character_limit(message_entry))
+        
         file_name = tk.Label(frame,text="",font=('calibre',10, 'bold'),fg="blue",bg="red")
         file_name.grid(row=2,column=0)
         
