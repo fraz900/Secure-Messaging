@@ -834,7 +834,7 @@ class connection():
         self._send_message(c,self.GOAHEAD)
         code = secrets.randbits(20)
         address = self.i.get_email(username)
-        self.e.send_code(address,code)
+        self.e.send_code(address,code,username)
         self.i.add_2fa_code(code,username)
         self._send_message(c,self.GOAHEAD)
         c.close()

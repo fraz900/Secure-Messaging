@@ -22,8 +22,8 @@ class Email():
             server.login(self.address, self.password)
             server.sendmail(self.address,recipient,content)
 
-    def send_code(self,recipient,code):
-        content = f"Your authentication code is: {code}"
+    def send_code(self,recipient,code,username):
+        content = f"{username}, your authentication code is: {code}"
         subject = "Secure Messaging 2FA code"
         from1 = self.address
         to = recipient
@@ -33,4 +33,4 @@ class Email():
 
 if __name__ == "__main__":
     e = Email()
-    e.send_code("fraz900@gmail.com",1234)
+    e.send_code("fraz900@gmail.com",1234,"fraz900")
