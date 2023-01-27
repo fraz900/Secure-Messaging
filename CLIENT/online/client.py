@@ -3,13 +3,11 @@ import hashlib
 import time
 from threading import Thread
 from textwrap import wrap
-try:
-    from online.encryption import DH,AES
-except:
-    from encryption import DH,AES
+from online.encryption import DH,AES,RSA
+
 from user_data.user_utils import user,message_store
 class connection():
-    def __init__(self,IP="127.0.0.1",PORT=12345,debug=True):
+    def __init__(self,IP="127.0.0.1",PORT=12345,user_class=None,debug=True):
         self.DEBUG = debug
         #network things
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -36,6 +34,8 @@ class connection():
         self.EDITMESSAGE= "em"
         self.ISSUE2FA = "it"
         self.RESETPASSWORD = "rp"
+        self.UPDATEPUBLICKEY = "up"
+        self.GETPUBLICKEY = "gp"
         #responses
         self.GOAHEAD = "200"
         self.AUTHERROR = "401"
@@ -46,7 +46,10 @@ class connection():
         self.AUTHCODE = None
         self.LARGESIZE = 20000
         self.UPLOADS = "uploads.txt"
-        self.u = user()
+        if user_class == None:
+            self.u = user()
+        else:
+            self.u = user_class
         check = self.u.details()
         if not check:
             self.REFRESH_CODE = None
@@ -189,7 +192,7 @@ class connection():
             self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             return True
         
-    def create_account(self,username,password,email):
+    def create_account(self,username,password,email,pub_key):
         hasher = hashlib.sha256()
         hasher.update(password.encode())
         password = hasher.hexdigest()
@@ -201,6 +204,7 @@ class connection():
             self._send_message(self.s,username)
             self._send_message(self.s,password)
             self._send_message(self.s,email)
+            self._send_message(self.s,pub_key)
             user_test = self._recieve_message()
             password_test = self._recieve_message(size=self.LARGESIZE)
             if user_test == username and password_test == password:
@@ -390,7 +394,14 @@ class connection():
         pinger = new_time-current_time
         return pinger*1000
 
-    def send_user_message(self,message,recipient):#TODO add some sort of size limit
+    def send_user_message(self,message,recipient,e2e=False):
+        if e2e:
+            key = self.get_pubkey(recipient)
+            sender = "<e>" + message
+            length,sender = RSA().encryptor(message,key)
+            sender = "<e2e>"+str(length)+","+str(message)
+        else:
+            sender = message
         auth = self.authenticated_start()
         self._initiate_connection()
         self._send_message(self.s,self.SEND_USER_MESSAGE)
@@ -399,19 +410,42 @@ class connection():
         data = self._recieve_message(goahead=True)
         self._send_message(self.s,recipient)
         self._recieve_message(goahead=True)
-        a = AES(message)
+        a = AES(sender)
         new_data = a.encrypt(self.key)
         size = self._size(new_data)
         size *= 1.2
         self._send_message(self.s,size)
         self._recieve_message(goahead=True)
-        self._send_message(self.s,message)
+        self._send_message(self.s,sender)
         token = self._recieve_message(size=self.LARGESIZE)
         current_time = time.time()
         info = message_store(self.USER_NAME,recipient,message,current_time,token)
         self.u.m.store_message(info)
         return True
 
+    def update_pubkey(self,new_pubkey):
+        auth = self.authenticated_start()
+        self._initiate_connection()
+        self._send_message(self.s,self.UPDATEPUBLICKEY)
+        data = self._recieve_message(goahead=True)
+        self._send_message(self.s,auth)
+        data = self._recieve_message(goahead=True)
+        self._send_message(self.s,new_pubkey)
+        self._recieve_message(goahead=True)
+        return True
+
+    def get_pubkey(self,username):
+        self._initiate_connection()
+        self._send_message(self.s,self.GETPUBLICKEY)
+        data = self._recieve_message(goahead=True)
+        self._send_message(self.s,username)
+        answer = self._recieve_message(size=self.LARGESIZE)
+        if answer in self.WARNINGS:
+            self._error_handling(answer)
+        else:
+            return answer
+
+        
     def check_messages(self):
         last_message = self.u.m.most_recent_message()
         
@@ -437,6 +471,12 @@ class connection():
             size = int(round(float(self._recieve_message())))
             self._send_message(self.s,self.GOAHEAD)
             content = self._recieve_message(size=size)
+            if content.startswith("<e2e>"):
+                content = content.replace("<e2e>","")
+                info = content.split(",")
+                content = RSA().decryptor(info[1],info[0],self.u.pubkey,self.u.privkey)
+                if not content.startswith("<e>"):
+                    content = "<F><End to End encrypted message that could not be decrypted>"
             self._send_message(self.s,self.GOAHEAD)
             send_time = self._recieve_message()
             self._send_message(self.s,self.GOAHEAD)

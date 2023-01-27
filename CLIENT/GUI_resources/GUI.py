@@ -10,14 +10,16 @@ import threading
 import ctypes
 import datetime
 import re
+from online.encryption import RSA
 
 class GUI():
 
     def __init__(self):
-        self.c = connection()
         self.u = user()
+        self.c = connection(user_class=self.u)
         user32 = ctypes.windll.user32
         self.resolution = user32.GetSystemMetrics(0),user32.GetSystemMetrics(1)
+        self.rsa = RSA()
         
     def start(self):
         if self.c.ping():
@@ -35,7 +37,6 @@ class GUI():
             else:
                 self.login()
         else:
-            #TODO add offline mode(?)
             self.error("Connection error, cannot connect to server.\n Please try again later")
 
     def error(self,error_message):
@@ -85,10 +86,15 @@ class GUI():
             try:
                 check = self.c.login(name,password)
                 if check:
-                    self.u.create(name,self.c._hash(password))
+                    keys = self.rsa.generate_keys()
+                    privkey = keys[1]
+                    pubkey = keys[0]
+                    self.u.create(name,self.c._hash(password),privkey,pubkey)
+                    self.c.update_pubkey(pubkey)
                     top.destroy()
                     self.main()
             except Exception as e:
+                print(e)
                 login_error.config(text="username or password incorrect",fg="red")
             end_loading()
             
@@ -223,18 +229,22 @@ class GUI():
             name = name_var.get()
             password = passw_var.get()
             email = email_var.get()
+            keys = self.rsa.generate_keys()
+            privkey = keys[1]
+            pubkey = keys[0]
             print(email,password,name)
             check = check_email_is_valid(email)
             if not check:
                 registration_error.config(text="Invalid Email Address",fg="red")
                 return False
             try:
-                self.c.create_account(name,password,email)
-            except Exception:
-               registration_error.config(text="Username Taken",fg="red")
-               return False
+                self.c.create_account(name,password,email,pubkey)
+            except Exception as e:
+                print(e)
+                registration_error.config(text="Username Taken",fg="red")
+                return False
             registration_error.config(text="Account created",fg="green")
-            self.u.create(name,self.c._hash(password))
+            self.u.create(name,self.c._hash(password),privkey,pubkey)
             time.sleep(1)
             top.destroy()
             self.main()
@@ -274,6 +284,8 @@ class GUI():
     def main(self):
         self.fileupload = False
         self.editing = False
+        self.e2e = False
+        self.selected = None
         top = tk.Tk()
         size = f"{self.resolution[0]}x{self.resolution[1]}"
         top.geometry(size)
@@ -286,7 +298,7 @@ class GUI():
         message = tk.StringVar()
         self.message_box_var = message
         def send():
-            if self.editing:
+            if self.editing:#TODO stop e2e messages from getting edited
                 self.value.content = message.get()
                 message_box.delete(self.num)
                 message_box.insert(self.num,f"{self.value.author}: {self.value.content} <{self.unix_to_normal_time(self.value.send_time)}>")
@@ -314,17 +326,23 @@ class GUI():
                 if content == "":
                     return False
                 message.set("")
-                self.c.send_user_message(content,recipient)
+                self.c.send_user_message(content,recipient,e2e=self.e2e)
+                self.e2e = False
+                e2e_button.grid()
+                e2e_label.configure(text="End to End encryption not enabled",fg="red")
+                self.e2e = False
             messages()
         def exiter():
             top.destroy()
 
         def messages():
             message_box.delete(0,(message_box.size()-1))
-            
+            e2e_enabled = False
+            e2e_pending = False
             try:
                 friend_num = friends_box.curselection()[0]
                 friend = friends_box.get(friend_num)
+                self.selected = friend
             except:
                 return False
             messages_recieved = self.u.m.get_messages(friend)
@@ -333,15 +351,22 @@ class GUI():
             messages.sort(key=lambda x: x.send_time)
             count = 0
             self.message_list = []
-            for message in messages:#TODO if a message is too long split it over multiple lines
+            for message in messages:
                 self.message_list.append(message)
                 if message.content.startswith("<file>"):
                     parts = message.content.split(",")
                     message_box.insert(count,f"{message.author}: {parts[2]} <{self.unix_to_normal_time(message.send_time)}>")
                     message_box.itemconfig(count,{"fg":"blue"})
+                elif message.content.startswith("<F>"):
+                    message.content = message.content.replace("<F>","")
+                    message_box.insert(count,f"{message.author}: {message.content} <{self.unix_to_normal_time(message.send_time)}>")
+                    message_box.itemconfig(count,{"fg":"red"})
                 else:
                     message_box.insert(count,f"{message.author}: {message.content} <{self.unix_to_normal_time(message.send_time)}>")
                 count += 1
+
+            e2e_button.grid()
+            e2e_label.configure(text="End to End encryption not enabled",fg="red")
 
         def add_friend():
             self.add_friend_window(top,friends_box)
@@ -382,11 +407,14 @@ class GUI():
                 self.u.m.delete_message(message.token)
                 message_box.delete(selected)
             def edit():
-                remove_file()
-                self.message_box_var.set(message.content)
-                self.editing = True
-                self.value = message
-                self.num = selected
+                if not self.e2e:
+                    remove_file()
+                    self.message_box_var.set(message.content)
+                    self.editing = True
+                    self.value = message
+                    self.num = selected
+                else:
+                    self.notif(top,"Cannot edit End to End encrypted messages")
             if message.content.startswith("<file>"):
                 m.add_command(label="Download",command=lambda: download(message))
                 if message.author == self.u.username:
@@ -442,6 +470,11 @@ class GUI():
         def character_limit(entry_text):
             if len(message.get())>0:
                 message.set(entry_text.get()[:255])
+
+        def endToEnd():
+            e2e_button.grid_remove()
+            e2e_label.configure(text="End to End encryption enabled",fg="green")
+            self.e2e = True
         frame = tk.Frame(top,width=400,height=100,bg="red")
         frame.grid(row=1,column=0, sticky="n")
         
@@ -480,10 +513,17 @@ class GUI():
         friends_box.grid(row=5,column=0)
         friends_box.bind("<Double-1>", lambda x: messages())
         
-        message_box = tk.Listbox(top,selectmode="single",width=100,fg=self.u.s.text_colour,bg=self.u.s.background_colour)
+        message_box = tk.Listbox(top,selectmode="single",width=(self.resolution[0]-1650),fg=self.u.s.text_colour,bg=self.u.s.background_colour)
         message_box.grid(row=1,column=1,sticky="nsew")
         message_box.bind("<Button-3>", do_popup)
 
+        e2e_label = tk.Label(top,text="" ,font=('calibre',10, 'bold'),bg="cyan")
+        e2e_label.grid(row=2,column=0)
+
+        e2e_button = tk.Button(top,text="Enable End to End encryption",command=endToEnd)
+        e2e_button.grid(row=2,column=1,sticky="E")
+        e2e_button.grid_remove()
+        
         top.bind("<Control-r>",messager)
         settings_button = tk.Button(frame,text="Settings",command=settings)
         settings_button.grid(row=7,column=0)
@@ -572,8 +612,13 @@ class GUI():
             download_path_entry.configure(state=tk.DISABLED)
             self.notif(topper,"settings reset")
             
-        def delete_account():#TODO add check
-            self.u.delete_all()
+        def delete_account():
+            check = tk.messagebox.askyesno(title="confirmation",message="Are you sure you want to delete your account?")
+            if check:
+                self.u.delete_all()
+                topper.destroy()
+                top.destroy()
+                
             
         def get_colour(start):
             return askcolor(start)[1]

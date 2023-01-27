@@ -4,12 +4,14 @@ import time
 from dataclasses import dataclass
 import xml.etree.cElementTree as ET
 import pathlib
+from online.encryption import RSA
 
 class user():#stores user info and settings 
     def __init__(self):
         self.t = tokens_storage()
         self.m = messages()
         self.s = settings()
+        self.RSA = RSA()
         try:
             file = open("user_data/user_account.txt","r")
             data = file.read()
@@ -17,6 +19,10 @@ class user():#stores user info and settings
             self.username = lines[0]
             self.pass_hash = lines[1]
             self.exists = True
+            keys = lines[2]
+            keys = keys.split(",")
+            self.pubkey = keys[0]
+            self.privkey = keys[1]
         except:
             self.exists = False
     def __repr__(self):
@@ -24,13 +30,15 @@ class user():#stores user info and settings
             return(self.username)
         else:
             return "does not exist"
-    def create(self,uname,pass_hash):
-        entry = f"{uname}\n{pass_hash}"
+    def create(self,uname,pass_hash,privkey,pubkey):
+        entry = f"{uname}\n{pass_hash}\n{privkey},{pubkey}"
         file = open("user_data/user_account.txt","w")
         file.write(entry)
         file.close()
         self.exists = True
         self.username = uname
+        self.privkey = privkey
+        self.pubkey = pubkey
         messages().reset()
         self.pass_hash = pass_hash
         return True
@@ -53,7 +61,7 @@ class user():#stores user info and settings
         self.s.delete()
         self.m.reset()
 
-    def export(self):
+    def export(self):#TODO add RSA keys
         tree = ET.parse(self.s.path)
         root = tree.getroot()
         profile_details = ET.SubElement(root,"user_details")
@@ -237,6 +245,7 @@ class settings():
         
     def delete(self):
         os.remove(self.path)
-        
+
+    
 if __name__== "__main__":
     None

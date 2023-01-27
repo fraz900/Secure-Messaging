@@ -47,6 +47,8 @@ class connection():
         self.ISSUE2FA = "it"
         self.RESETPASSWORD = "rp"
         self.INSTALL = "in"
+        self.UPDATEPUBLICKEY = "up"
+        self.GETPUBLICKEY = "gp"
         #other
         self.LARGESIZE = 20000
         self.VERYLARGESIZE = 100000
@@ -164,6 +166,10 @@ class connection():
                 self.issue_2FA(c)
             case self.RESETPASSWORD:
                 self.reset_password(c)
+            case self.GETPUBLICKEY:
+                self.check_pubkey(c)
+            case self.UPDATEPUBLICKEY:
+                self.update_pubkey(c)
             case _:
                 print("command",command)
                 self._send_message(c,self.FAILURE)
@@ -608,6 +614,8 @@ class connection():
             username = self._recieve_message(user)
             password = self._recieve_message(user,size=self.LARGESIZE)#quickfix
             email_address = self._recieve_message(user,size=self.LARGESIZE)
+            pub_key = self._recieve_message(user,size=self.VERYLARGESIZE)
+
             self._send_message(user,username)
             self._send_message(user,password)
             check = self._recieve_message(user)
@@ -621,7 +629,7 @@ class connection():
             return
         self._send_message(user,self.GOAHEAD)
         user.close()
-        self.i.add_user(username,password,email_address)
+        self.i.add_user(username,password,email_address,pub_key)
         os.chdir("data")
         os.mkdir(username)
         os.chdir(username)
@@ -693,7 +701,7 @@ class connection():
         self.match_command(c,command,ip)
         
 
-        self.match_command(c,command,ip)
+        #self.match_command(c,command,ip)
         
     def send_user_message(self,c):
         username = self._authenticate(c)
@@ -736,6 +744,8 @@ class connection():
                 c.close()
                 return False
             messages = messages2
+        elif not messages2:
+            messages = messages1
         else:
             messages = (messages1+messages2)
             
@@ -886,6 +896,29 @@ class connection():
         self._recieve_message(c,setup=True)
         c.close()
         return True
+
+    def update_pubkey(self,c):
+        username = self._authenticate(c)
+        if not username:
+            c.close()
+            return False
+        pub_key = self._recieve_message(c,size=self.VERYLARGESIZE)
+        self.i.update_pubkey(username,pub_key)
+        self._send_message(c,self.GOAHEAD)
+        return True
+        
+
+    def check_pubkey(self,c):
+        self._send_message(c,self.GOAHEAD)
+        username = self._recieve_message(c)
+        pubkey = self.i.check_pubkey(username)
+        if not pubkey:
+            self.send_message(c,self.NOTFOUND)
+        else:
+            self._send_message(c,pubkey)
+        c.close()
+        return True
+
     
     def _file_check(self,path):#RECURSION
         things = os.listdir(path)

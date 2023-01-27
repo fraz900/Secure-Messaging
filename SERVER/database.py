@@ -1,9 +1,6 @@
 import sqlite3
 import time
 import secrets
-##def delete_table(table):
-##    info_c.execute(f"DROP TABLE {table}")
-##    info_conn.commit()
 
 class info():
     def __init__(self,timeout=3600):
@@ -14,7 +11,8 @@ class info():
                     username string PRIMARY KEY,
                     password string,
                     account_creation_time real NOT NULL,
-                    email_address string);"""
+                    email_address string,
+                    pub_key text);"""
         self.info_c.execute(command)
 
         command = """CREATE TABLE IF NOT EXISTS Logins(
@@ -56,7 +54,7 @@ class info():
         self.cleanup()
         
     def __repr__(self):
-        self.info_c.execute("SELECT * FROM TFA_codes")
+        self.info_c.execute("SELECT * FROM Users")
         rows = self.info_c.fetchall()
         for row in rows:
             print(row)
@@ -78,16 +76,30 @@ class info():
             return False
         else:
             return rows[0][0]
-    def add_user(self,uname,pword,email):
+    def add_user(self,uname,pword,email,pub_key):
         current_time = time.time()
         if not self.check_user(uname):
-            self.info_c.execute(f"""INSERT INTO Users (username,password,account_creation_time,email_address)
-            VALUES ("{uname}","{pword}",{current_time},"{email}");""")
+            self.info_c.execute(f"""INSERT INTO Users (username,password,account_creation_time,email_address,pub_key)
+            VALUES ("{uname}","{pword}",{current_time},"{email}","{pub_key}");""")
             self.info_conn.commit()
             return True
         else:
             return False
 
+    def check_pubkey(self,uname):
+        self.info_c.execute(f"""SELECT pub_key from Users WHERE username="{uname}";""")
+        rows = self.info_c.fetchall()
+        if len(rows) == 0:
+            return False
+        else:
+            return rows[0][0]
+
+    def update_pubkey(self,uname,new_pubkey):
+        command = f"""UPDATE Users SET pub_key= "{new_pubkey}" WHERE username = "{uname}";"""
+        self.info_c.execute(command)
+        self.info_conn.commit()
+        return True
+    
     def delete_user(self,username):
         self.info_c.execute(f"""DELETE FROM Users WHERE username="{username}";""")
         self.info_conn.comit()
@@ -200,6 +212,11 @@ class info():
         self.info_c.execute(f"""UPDATE Users SET password="{pword}" WHERE username="{user}";""")
         self.info_conn.commit()
         return True
+
+    def delete_table(self,table):
+        self.info_c.execute(f"DROP TABLE {table}")
+        self.info_conn.commit()
+
     
 class tokens():
     def __init__(self,time_limit=600):
@@ -264,7 +281,7 @@ class tokens():
 if __name__ == "__main__":
     j = info()
     #j.info_c.execute("""SELECT password FROM Users,TFA_codes WHERE Users.username=TFA_codes.user AND TFA_codes.code="737609";""")
-    #print(j.info_c.fetchall())
     print(j)
+    #j.delete_table("Users")
 
 
