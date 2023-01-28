@@ -61,12 +61,14 @@ class user():#stores user info and settings
         self.s.delete()
         self.m.reset()
 
-    def export(self):#TODO add RSA keys
+    def export(self):
         tree = ET.parse(self.s.path)
         root = tree.getroot()
         profile_details = ET.SubElement(root,"user_details")
         ET.SubElement(profile_details,"username").text = self.username
         ET.SubElement(profile_details,"password").text = self.pass_hash
+        ET.SubElement(profile_details,"pub_key").text = self.pubkey
+        ET.SubElement(profile_details,"priv_key").text = self.privkey
         tree.write(os.path.join(self.s.download_folder,"user_account_profile.xml"),encoding='UTF-8',xml_declaration=True)
         return True
         
@@ -77,10 +79,12 @@ class user():#stores user info and settings
             user_details = root.find("user_details")
             uname = user_details.find("username").text
             pword = user_details.find("password").text
+            pubkey = user_details.find("pub_key").text
+            privkey = user_details.find("priv_key").text
             root.remove(user_details)
             tree.write(self.s.path)
             self.s = settings()
-            self.create(uname,pword)
+            self.create(uname,pword,privkey,pubkey)
         except Exception as e:
             raise Exception("invalid file")
             

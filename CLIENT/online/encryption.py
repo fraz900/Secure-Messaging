@@ -321,7 +321,7 @@ class RSA():
         private = self.multinv(totient,65537)
         return public,private
     
-    def multinv(self,modulus,value):#TODO make it look less stupid
+    def multinv(self,modulus,value):
         #multiplicative inverse in a given modulus
         #calculated with the extended euclidean algorithm
         x = 0
@@ -343,13 +343,9 @@ class RSA():
         return length,pow(message,65537,int(key))
 
     def decryptor(self,data,length,pubkey,privkey):
-        print(data)
-        print(pubkey)
-        print(privkey)
         try:
             decrypted = pow(int(data),int(privkey),int(pubkey))
             plaintext = int.to_bytes(decrypted,int(length),"big")
-            print("attempt",plaintext.decode())
             return plaintext.decode()
         except Exception as e:
             print(e)

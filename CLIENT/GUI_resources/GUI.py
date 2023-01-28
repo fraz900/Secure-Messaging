@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import filedialog as fd
 from tkinter.colorchooser import askcolor
+from tkinter import ttk
 from PIL import Image, ImageTk
 from online.client import *
 from user_data.user_utils import user
@@ -20,6 +21,7 @@ class GUI():
         user32 = ctypes.windll.user32
         self.resolution = user32.GetSystemMetrics(0),user32.GetSystemMetrics(1)
         self.rsa = RSA()
+        self.MAXFILESIZE = 128000
         
     def start(self):
         if self.c.ping():
@@ -232,7 +234,6 @@ class GUI():
             keys = self.rsa.generate_keys()
             privkey = keys[1]
             pubkey = keys[0]
-            print(email,password,name)
             check = check_email_is_valid(email)
             if not check:
                 registration_error.config(text="Invalid Email Address",fg="red")
@@ -249,7 +250,6 @@ class GUI():
             top.destroy()
             self.main()
         def check_email_is_valid(email):
-            print(email)
             first = re.search("^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$",email)
             second = re.search("^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}[.]\w{2,3}$",email)
             if first or second:
@@ -298,7 +298,7 @@ class GUI():
         message = tk.StringVar()
         self.message_box_var = message
         def send():
-            if self.editing:#TODO stop e2e messages from getting edited
+            if self.editing:
                 self.value.content = message.get()
                 message_box.delete(self.num)
                 message_box.insert(self.num,f"{self.value.author}: {self.value.content} <{self.unix_to_normal_time(self.value.send_time)}>")
@@ -310,7 +310,10 @@ class GUI():
                 friend_num = friends_box.curselection()[0]
                 friend = friends_box.get(friend_num)
             except:
-                return False
+                try:
+                    friend = self.selected
+                except:
+                    return False
             recipient = friend
             if self.fileupload:
                 data = self.c.file_to_bin(self.path)
@@ -332,6 +335,7 @@ class GUI():
                 e2e_label.configure(text="End to End encryption not enabled",fg="red")
                 self.e2e = False
             messages()
+            message_box.yview_moveto(1)
         def exiter():
             top.destroy()
 
@@ -360,8 +364,8 @@ class GUI():
                     message_box.insert(count,f"{message.author}: {message.content} <{self.unix_to_normal_time(message.send_time)}>")
                     message_box.itemconfig(count,{"fg":"red"})
                 elif message.content.startswith("<e>"):
-                    message.content = message.content.replace("<e>","")
-                    message_box.insert(count,f"{message.author}: {message.content} <{self.unix_to_normal_time(message.send_time)}>")
+                    placer = message.content.replace("<e>","")
+                    message_box.insert(count,f"{message.author}: {placer} <{self.unix_to_normal_time(message.send_time)}>")
                     message_box.itemconfig(count,{"fg":"green"})
                 else:
                     message_box.insert(count,f"{message.author}: {message.content} <{self.unix_to_normal_time(message.send_time)}>")
@@ -376,8 +380,12 @@ class GUI():
         def settings():
             self.settings_window(top,message_box)
             
-        def add_file():#TODO add size limit (8mb? (hahaha you're funny, 128kb))
+        def add_file():
             filepath = fd.askopenfilename()
+            info = os.stat(filepath)
+            if info.st_size > self.MAXFILESIZE:
+                self.notif(top,"File size is too large, 128KB maximum")
+                return False
             filename = os.path.basename(filepath)
             file_name.configure(text=filename)
             self.fileupload = True
@@ -418,10 +426,12 @@ class GUI():
                 else:
                     self.notif(top,"Cannot edit End to End encrypted messages")
             if message.content.startswith("<file>"):
-                m.add_command(label="Download",command=lambda: download(message))
+                m.add_command(label="Download",command=lambda: threading.Thread(download(message)).start())
                 if message.author == self.u.username:
                     m.add_separator()
                     m.add_command(label="delete",command=lambda: delete(file=True))
+            elif message.content.startswith("<e>"):
+                m.add_command(label="view info",command= lambda: view_info(message))
             elif message.author == self.u.username:
                 m.add_command(label="view info",command= lambda: view_info(message))
                 m.add_command(label="edit",command=edit)
@@ -448,14 +458,14 @@ class GUI():
             token_label = tk.Label(topper,text=f"ID Token: {message.token}" ,font=('calibre',10, 'bold'))
             token_label.grid(row=4,column=0)
 
-        def download(message):#TODO consider threading? +interdeminate loading
+        def download(message):
             info = message.content.split(",")
             retrieval = info[1]
             filename = info[2]
             data = self.c.view(retrieval)
             data = data.strip()
             byte_string = self.c.bin_to_bytes(data)
-            path = os.path.join(self.u.s.download_file,filename)
+            path = os.path.join(self.u.s.download_folder,filename)
             file = open(path,"wb")
             file.write(byte_string)
             file.close()
@@ -483,6 +493,7 @@ class GUI():
         message_entry = tk.Entry(frame,textvariable = message, font=('calibre',10,'normal'))
         message_entry.grid(row=1,column=0)
         message.trace("w",lambda *args: character_limit(message_entry))
+        message_entry.bind("<Return>",lambda x:send())
         
         file_name = tk.Label(frame,text="",font=('calibre',10, 'bold'),fg="blue",bg="red")
         file_name.grid(row=2,column=0)
@@ -505,7 +516,6 @@ class GUI():
 
         friends_box = tk.Listbox(frame,selectmode = "single")
         friends = self.u.m.get_users()
-        print(friends)
         count = 1
         for friend in friends:
             friend = friend[0]
@@ -548,7 +558,6 @@ class GUI():
                 error_lbl.configure(text="Please enter a username")
                 return False
             if self.c.check_user(uname):
-                print(friends_box.size())
                 friends_box.insert((friends_box.size()),uname)
                 topper.destroy()
             else:
@@ -661,6 +670,7 @@ class GUI():
         topper.title("Notification")
         tk.Label(topper,text=message,font=('calibre',10, 'bold')).grid(row=1,column=1)
         tk.Button(topper,text="exit",command = lambda: topper.destroy()).grid(row=2,column=1)
+
 
 if __name__ == "__main__":
     g = GUI()

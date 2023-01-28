@@ -211,7 +211,7 @@ class connection():
                 message = a.decrypt(self.key)
                 print("recieved :",message)
                 return message.strip()
-        except (ConnectionResetError,ConnectionAbortedError,TimeoutError,OSError) as e:#TODO add some sort of dictionary for readability
+        except (ConnectionResetError,ConnectionAbortedError,TimeoutError,OSError) as e:
             print("client",e)
             sys.exit()            
             return False
@@ -289,17 +289,7 @@ class connection():
                 count += 1
                 complete += data
                 self._send_message(user,self.GOAHEAD)
-        #Add file to user's manifest
-        os.chdir(os.path.split(__file__)[0])
-        os.chdir("data")
-        os.chdir(username)
-        self._send_message(user,name)
-        current_time = time.time()
-        file = open(self.MANIFEST,"a")
-        entry = f"{name},{current_time},{shared_state}\n"
-        file.write(entry)
-        file.close()
-        os.chdir(os.path.split(__file__)[0])
+        
         #Save the data in the appropriate place
         os.chdir("data")
         if not shared:
@@ -333,6 +323,17 @@ class connection():
             entry = f"{username}\n"
             file.write(entry)
             file.close()
+        #Add file to user's manifest
+        os.chdir(os.path.split(__file__)[0])
+        os.chdir("data")
+        os.chdir(username)
+        self._send_message(user,name)
+        current_time = time.time()
+        file = open(self.MANIFEST,"a")
+        entry = f"{name},{current_time},{shared_state}\n"
+        file.write(entry)
+        file.close()
+        os.chdir(os.path.split(__file__)[0])
         return True
 
     def monitor_auth(self,timer,seperate=False):
@@ -714,7 +715,7 @@ class connection():
             c.close()
             return False
         self._send_message(c,self.GOAHEAD)
-        size = self._recieve_message(c)#TODO implement some sort of size limit
+        size = self._recieve_message(c)
         size = int(round(float(size)))
         size *= 2
         self._send_message(c,self.GOAHEAD)
@@ -944,7 +945,7 @@ class connection():
         hasher = hashlib.sha256()
         file = open(path,"rb")
         while True:
-            data = f.read(65536)
+            data = file.read(65536)
             if not data:
                 break
             hasher.update(data)
