@@ -397,9 +397,9 @@ class connection():
     def send_user_message(self,message,recipient,e2e=False):
         if e2e:
             key = self.get_pubkey(recipient)
-            sender = "<e>" + message
+            message = "<e>" + message
             length,sender = RSA().encryptor(message,key)
-            sender = "<e2e>"+str(length)+","+str(message)
+            sender = "<e2e>"+str(length)+","+str(sender)
         else:
             sender = message
         auth = self.authenticated_start()

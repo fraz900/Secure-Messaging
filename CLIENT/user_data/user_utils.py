@@ -21,8 +21,8 @@ class user():#stores user info and settings
             self.exists = True
             keys = lines[2]
             keys = keys.split(",")
-            self.pubkey = keys[0]
-            self.privkey = keys[1]
+            self.pubkey = keys[1]
+            self.privkey = keys[0]
         except:
             self.exists = False
     def __repr__(self):

@@ -337,8 +337,6 @@ class GUI():
 
         def messages():
             message_box.delete(0,(message_box.size()-1))
-            e2e_enabled = False
-            e2e_pending = False
             try:
                 friend_num = friends_box.curselection()[0]
                 friend = friends_box.get(friend_num)
@@ -361,6 +359,10 @@ class GUI():
                     message.content = message.content.replace("<F>","")
                     message_box.insert(count,f"{message.author}: {message.content} <{self.unix_to_normal_time(message.send_time)}>")
                     message_box.itemconfig(count,{"fg":"red"})
+                elif message.content.startswith("<e>"):
+                    message.content = message.content.replace("<e>","")
+                    message_box.insert(count,f"{message.author}: {message.content} <{self.unix_to_normal_time(message.send_time)}>")
+                    message_box.itemconfig(count,{"fg":"green"})
                 else:
                     message_box.insert(count,f"{message.author}: {message.content} <{self.unix_to_normal_time(message.send_time)}>")
                 count += 1

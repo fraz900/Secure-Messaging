@@ -343,11 +343,16 @@ class RSA():
         return length,pow(message,65537,int(key))
 
     def decryptor(self,data,length,pubkey,privkey):
+        print(data)
+        print(pubkey)
+        print(privkey)
         try:
             decrypted = pow(int(data),int(privkey),int(pubkey))
             plaintext = int.to_bytes(decrypted,int(length),"big")
+            print("attempt",plaintext.decode())
             return plaintext.decode()
-        except:
+        except Exception as e:
+            print(e)
             return ""
     
 if __name__ == "__main__":
