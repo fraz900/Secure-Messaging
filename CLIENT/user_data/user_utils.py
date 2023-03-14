@@ -5,9 +5,13 @@ from dataclasses import dataclass
 import xml.etree.cElementTree as ET
 import pathlib
 from online.encryption import RSA
-
-class user():#stores user info and settings 
+#Main class to be imported into other modules
+#Stores user account information and encaspulates
+#other information objects
+class user():
     def __init__(self):
+        #Initiates object by creating encapsulated objects
+        #and retrieving stored information
         self.t = tokens_storage()
         self.m = messages()
         self.s = settings()
@@ -31,6 +35,7 @@ class user():#stores user info and settings
         else:
             return "does not exist"
     def create(self,uname,pass_hash,privkey,pubkey):
+        #Used to store information about a new user account
         entry = f"{uname}\n{pass_hash}\n{privkey},{pubkey}"
         file = open("user_data/user_account.txt","w")
         file.write(entry)
@@ -44,24 +49,30 @@ class user():#stores user info and settings
         return True
     
     def details(self):
+        #returns basic user account information
         if self.exists:
             return self.username,self.pass_hash
         else:
             return False
         
     def userExists(self):
+        #Used to check if a user account exists
         return self.exists
     
     def delete(self,file):
+        #Deletes user account information
         matcher = {"account":"user_data/user_account.txt"}
         os.remove(matcher[file])
 
     def delete_all(self):
+        #Deletes all (non-system) user information
         self.delete("account")
         self.s.delete()
         self.m.reset()
 
     def export(self):
+        #Used to create an XML file that can be used
+        #to import an account profile to another device
         tree = ET.parse(self.s.path)
         root = tree.getroot()
         profile_details = ET.SubElement(root,"user_details")
@@ -73,6 +84,7 @@ class user():#stores user info and settings
         return True
         
     def import_settings(self,path):
+        #Used to import a user account profile from an XML file
         try:
             tree = ET.parse(path)
             root = tree.getroot()
@@ -89,11 +101,13 @@ class user():#stores user info and settings
             raise Exception("invalid file")
             
 
-            
+#Object used to store token values
+#(AES key tokens, auth codes)
 class tokens_storage():
     def __init__(self):
         None
     def check_key_token(self):
+        #Checks if an AES key token exists, and if so returns it
         try:
             file = open("user_data/key_token.txt","r")
             content = file.read()
@@ -105,6 +119,7 @@ class tokens_storage():
         except:
             return False
     def store_key_token(self,key,identifier):
+        #Stores a new AES key token
         file = open("user_data/key_token.txt","w")
         entry = f"{identifier}\n{key}"
         file.write(entry)
@@ -112,6 +127,7 @@ class tokens_storage():
         return True
 
     def store_auth_code(self,code):
+        #Stores a new auth code
         current_time = time.time()
         file = open("user_data/auth_code.txt","w")
         entry = f"{current_time},{code}"
@@ -120,6 +136,8 @@ class tokens_storage():
         return True
         
     def check_auth_code(self):
+        #checks if a stored auth code exists,
+        #and if so returns it
         file = open("user_data/auth_code.txt","r")
         content = file.read()
         file.close()
@@ -129,10 +147,11 @@ class tokens_storage():
         return check_time,code
 
     def delete(self,file):
+        #Deletes stored tokens
         matcher = {"key":"user_data/key_token.txt"}
         os.remove(matcher[file])
 
-
+#Dataclass used to represent messages
 @dataclass()
 class message_store:
     author: str
@@ -141,8 +160,11 @@ class message_store:
     send_time: float
     token: str
 
+#Object used to represent and interact with the messages
+#database architecture
 class messages():
     def __init__(self):
+        #Initiates object by making sure the database exists
         PATH = "user_data/messages.db"
         self.conn = sqlite3.connect(PATH,check_same_thread=False)
         self.c = self.conn.cursor()
@@ -155,11 +177,13 @@ class messages():
         self.c.execute(command)
 
     def reset(self):
+        #Deletes all stored messages
         self.c.execute("DROP TABLE Messages")
         self.conn.commit()
         self.__init__()
 
     def store_message(self,message):
+        #Adds a new message to the database
         if not self.get_message(message.token):
             self.c.execute(f"""INSERT INTO Messages (id,author,recipient,sent_time,contents)
                             VALUES ("{message.token}","{message.author}","{message.recipient}",{message.send_time},"{message.content}");""")
@@ -169,10 +193,12 @@ class messages():
             return False
 
     def store_messages(self,messages):
+        #Adds a list of messages to the database
         for message in messages:
             self.store_message(message)
 
-    def get_message_from_recipient(self,user):#returns all messages to a given user
+    def get_message_from_recipient(self,user):
+        #returns all messages to a given user
         self.c.execute(f"""SELECT * FROM Messages WHERE recipient="{user}" AND recipient != author;""")
         rows = self.c.fetchall()
         messages = []
@@ -180,7 +206,8 @@ class messages():
             messages.append(message_store(row[1],row[2],row[4],row[3],row[0]))
         return messages
           
-    def get_messages(self,user):#returns all messages from a given user
+    def get_messages(self,user):
+        #returns all messages from a given user
         self.c.execute(f"""SELECT * FROM Messages WHERE author="{user}" AND recipient != author;""")
         rows = self.c.fetchall()
         messages = []
@@ -188,13 +215,16 @@ class messages():
             messages.append(message_store(row[1],row[2],row[4],row[3],row[0]))
         return messages
 
-    def get_message(self,token):#returns a singular message with the token passed
+    def get_message(self,token):
+        #returns a singular message with the token given
         self.c.execute(f"""SELECT * FROM Messages WHERE id="{token}";""")
         rows = self.c.fetchall()
         if len(rows) == 0:
             return False
         return rows[0]
     def get_users(self):
+        #Returns a list of all users who have sent messages to
+        #or recieved messages from the user
         self.c.execute("SELECT DISTINCT author FROM Messages")
         results = self.c.fetchall()
         self.c.execute("SELECT DISTINCT recipient FROM Messages")
@@ -202,22 +232,30 @@ class messages():
         return list(dict.fromkeys((results+results1)))
 
     def most_recent_message(self):
+        #Returns the time of the user's most recently sent or recieved
+        #message stored in the database
         self.c.execute("SELECT MAX(sent_time) FROM Messages")
         result = self.c.fetchall()
         return result[0][0]
     
     def delete_message(self,identifier):
+        #Deletes a message identified by the given id
         self.c.execute(f"""DELETE FROM Messages WHERE id="{identifier}";""")
         self.conn.commit()
         return True
 
     def edit_message(self,token,new_message):
+        #updates the contents of a message
         self.c.execute(f"""UPDATE Messages SET contents = "{new_message}" WHERE id="{token}";""")
         self.conn.commit()
         return True
-    
+
+#Object used to represent and interact with the
+#Settings XML file
 class settings():
     def __init__(self,path="user_data/settings.xml"):
+        #Initiates object by either retrieving existing settings
+        #or creating a default settings file
         self.path = path
         try:
             tree = ET.parse(self.path)
@@ -242,12 +280,14 @@ class settings():
         self.tree = tree
         
     def update(self,setting,new):
+        #Changes a specified setting
         for thing in self.tree.findall(f".//{setting}"):
             thing.text = new
         self.tree.write(self.path,encoding='UTF-8',xml_declaration=True)
         self.__init__(self.path)
         
     def delete(self):
+        #Delets stored settings
         os.remove(self.path)
 
     

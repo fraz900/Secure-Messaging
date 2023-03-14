@@ -5,6 +5,7 @@ import pathlib
 import tkinter as tk
 from tkinter import filedialog as fd
 from tkinter import ttk
+#Main Function (used to run installer)
 def main():
     default_install = str(pathlib.Path.home() / "Downloads")
 
@@ -15,6 +16,7 @@ def main():
 
     shortcut = tk.IntVar()
     start_after = tk.IntVar()
+    #Function to open file dialogue and set new download folder
     def new_download_folder():
         filepath = fd.askdirectory()
         if not filepath:
@@ -24,7 +26,7 @@ def main():
         download_path_entry.insert(0,filepath)
         download_path_entry.configure(state=tk.DISABLED)
         return True
-
+    #Function to download program files for server and display progress bar to user
     def installer(path,success_indicator,shortcut,start_after):
         SERVER_IP = "127.0.0.1"
         PORT = 12345
@@ -47,6 +49,7 @@ def main():
         s.sendall("200".encode())
         s.recv(1024)
         s.sendall("200".encode())
+        #Loop to recieve name files (empty files)
         while True:
             holder = (s.recv(4096)).decode()
             s.sendall("200".encode())
@@ -58,7 +61,7 @@ def main():
                 value += 10
                 pb["value"] = value
                 top.update_idletasks()
-                
+        #Loop to recieve data files (files containing data)        
         while True:
             name = (s.recv(4096)).decode()
             s.sendall("200".encode())
@@ -87,6 +90,7 @@ def main():
                 
         success_indicator.configure(text="Download finished",fg="green")
         if shortcut.get() == 1:
+            #Creates a desktop shortcut
             import win32com.client
             icon = os.path.join(INSTALL_LOCATION,r"GUI_resources\assets\icon.ico")
             pather = os.path.join(str(pathlib.Path.home() / "Desktop"),"Secure Messaging.lnk")
@@ -98,10 +102,11 @@ def main():
             shortcut.WorkingDirectory = INSTALL_LOCATION
             shortcut.save()
         if start_after.get() == 1:
+            #Starts the program
             os.startfile(main_file,cwd=os.path.split(main_file)[0])
            
 
-        
+    #GUI rendering 
     download_path_entry = tk.Entry(top,font=('calibre',10,'normal'),width=30)
     download_path_entry.insert(0,default_install)
     download_path_entry.xview_moveto(1)

@@ -10,8 +10,12 @@ from textwrap import wrap
 from database import tokens,info
 from encryption import DH,AES
 from tfa import Email
+
+#Object that manages and represents all network interactions
 class connection():
     def __init__(self):
+        #Initiates object by setting constants and creating
+        #encapsulated objects
         #network things
         self.s = socket.socket()
         self.PORT = 12345
@@ -59,6 +63,7 @@ class connection():
         self.e = Email()
         
     def start(self)->None:
+        #Starts the server listening for connections
         print("online")
         self.s = socket.socket()
         self.s.bind(("0.0.0.0",self.PORT))
@@ -71,6 +76,9 @@ class connection():
             threading.Thread(target=self.handler,args=[c,addr]).start()
 
     def handler(self,c,ip)->None:
+        #Handles a given connection in its own independent thread
+        #runs through the setup commands (e.g. allowing the connection to become encrypted)
+        #And then redirects to the appropriate command function
         os.chdir(os.path.split(__file__)[0])
         self._send_message(c,self.GOAHEAD,setup=True)
         check = self._recieve_message(c,setup=True)
@@ -130,6 +138,7 @@ class connection():
         self.match_command(c,command,ip)
 
     def match_command(self,c,command,ip):
+        #Runs the approrpiate function for a given command
         command = command.strip()
         match command:#encrypted commands
             case self.REFRESHAUTH:
@@ -178,6 +187,7 @@ class connection():
         print(command)
         
     def log(self,ip,command):
+        #Logs the execution of a command
         current_time = time.time()
         os.chdir(os.path.split(__file__)[0])
         entry = f"{ip},{command},{current_time}\n"
@@ -186,6 +196,7 @@ class connection():
         file.close()
         return True
     def _send_message(self,sock,message,setup=False)->None:
+        #Used to send a message to the client
         message = str(message)
         if setup:
             sock.sendall(str(message).encode())
@@ -198,6 +209,7 @@ class connection():
                 print("disconnected")
         print("sent : ",message)
     def _recieve_message(self,sock,setup=False,size=1024)-> str:
+        #Used to recieve a message from the client
         if size < 1024:
             size = 1024
         try:
@@ -216,10 +228,13 @@ class connection():
             sys.exit()            
             return False
     def ping(self,user):
+        #response to ping command
         self._send_message(user,self.GOAHEAD,setup=True)
         user.close()
         return True
     def refresh_token(self,user,ip):
+        #Generates and stores a new auth code if the user provides
+        #a valid refresh auth code (i.e. password)
         self._send_message(user,self.GOAHEAD)
         username = self._recieve_message(user)
         check = self.i.check_user(username)
@@ -247,12 +262,16 @@ class connection():
             user.close()
 
     def check_auth(self,auth_code):
+        #Checks if an auth code is valid
         return(self.i.check_auth_token(auth_code))
     
     def clear_codes(self):
+        #Cleans up token databases
         self.i.cleanup()
 
     def _authenticate(self,user):
+        #Used to handle a request to authenticate for the user
+        #Returns the associated username for a user's auth code
         self._send_message(user,self.GOAHEAD)
         auth = self._recieve_message(user,size=self.LARGESIZE)
         username = self.check_auth(auth)
@@ -263,6 +282,8 @@ class connection():
         return username
     
     def upload_data(self,user):
+        #Used to enable file upload to the server
+        
         #Recieve user/file info and the actual data
         username = self._authenticate(user)
         if not username:
@@ -337,6 +358,8 @@ class connection():
         return True
 
     def monitor_auth(self,timer,seperate=False):
+        #Function to periodically perform cleanup on the token databases
+        #Will autamatically move itself to a new thread
         if not seperate:
             threading.Thread(target=self.monitor_auth,args=[timer,True]).start()
             return
@@ -345,6 +368,7 @@ class connection():
             time.sleep(600)
 
     def user_auth_checking(self,user):
+        #Used by clients to check if their auth codes are valid
         self._send_message(user,self.GOAHEAD)
         code = self._recieve_message(user,size=self.LARGESIZE)
         if self.check_auth(code):
@@ -354,6 +378,7 @@ class connection():
         user.close()
 
     def update(self,user):
+        #Used by clients to update the contents of uploaded files
         username = self._authenticate(user)
         if not username:
             user.close()
@@ -383,7 +408,7 @@ class connection():
             os.chdir(os.path.split(__file__)[0])
             os.chdir("data")
             os.chdir("shared")
-        file = open(filename,"w")#if two users try to update at same time?
+        file = open(filename,"w")
         file.write(change)
         file.close()
         self._send_message(user,self.GOAHEAD)
@@ -391,6 +416,7 @@ class connection():
                 
 
     def delete(self,user):
+        #Used to remove an uploaded file from the server upon client request
         username = self._authenticate(user)
         if not username:
             user.close()
@@ -413,6 +439,9 @@ class connection():
         return True
 
     def _deleter(self,username,filename):
+        #Used to actually perform the file manipulation of a removing a file from
+        #the server
+        #(Manifest updates and such like)
         os.chdir("data")
         os.chdir(username)
         file = open(self.MANIFEST,"r")
@@ -468,6 +497,7 @@ class connection():
         return True
     
     def view(self,user):
+        #Used to enable file download to client computers
         username = self._authenticate(user)
         if not username:
             user.close()
@@ -511,7 +541,10 @@ class connection():
             self._recieve_message(user)
         self._send_message(user,self.GOAHEAD)
         user.close()
+        
     def login(self,user,ip):
+        #responds to clients requests on whether user provided login
+        #information is valid or not
         self._send_message(user,self.GOAHEAD)
         username = self._recieve_message(user)
         check = self.i.check_user(username)
@@ -532,7 +565,10 @@ class connection():
         self.log(ip,f"login {username} incorrect")
         user.close()
         return False
+    
     def share(self,user):
+        #Used to add an uploaded file to additional user's manifests
+        #(i.e. grant access to a file to other users)
         username = self._authenticate(user)
         if not username:
             user.close()
@@ -608,13 +644,17 @@ class connection():
         return True
         
     def create_account(self,user):
+        #Used to recieve user information to enable new account creation
         self._send_message(user,self.GOAHEAD)
         counter = 0 
         while True:
             counter += 1
             username = self._recieve_message(user)
-            password = self._recieve_message(user,size=self.LARGESIZE)#quickfix
+            self._send_message(user,self.GOAHEAD)
+            password = self._recieve_message(user,size=self.LARGESIZE)
+            self._send_message(user,self.GOAHEAD)
             email_address = self._recieve_message(user,size=self.LARGESIZE)
+            self._send_message(user,self.GOAHEAD)
             pub_key = self._recieve_message(user,size=self.VERYLARGESIZE)
 
             self._send_message(user,username)
@@ -637,7 +677,9 @@ class connection():
         file = open(self.MANIFEST,"w")
         file.close()
         return True
+    
     def get_ownership(self,user):
+        #Used to provide the client with the owner of a shared file
         username = self._authenticate(user)
         if not username:
             user.close()
@@ -683,9 +725,11 @@ class connection():
         return True
 
     def _size(self,s)->int:
+        #Returns the UTF-8 encoded size of a given string
         return len(s.encode('utf-8')) 
 
     def use_key(self,c,ip):
+        #Used to enable client reuse of AES 128 bit keys
         self._send_message(c,self.GOAHEAD,setup=True)
         token = self._recieve_message(c,size=self.LARGESIZE,setup=True)
         check = self.t.check_token(token)
@@ -705,6 +749,7 @@ class connection():
         #self.match_command(c,command,ip)
         
     def send_user_message(self,c):
+        #Recieves information about a user message and stores in database
         username = self._authenticate(c)
         if not username:
             c.close()
@@ -727,6 +772,8 @@ class connection():
         return True
 
     def check_messages(self,c):
+        #Used to provide clients with a list of messages they've recieved or sent
+        #in a given time frame
         username = self._authenticate(c)
         if not username:
             c.close()
@@ -778,6 +825,7 @@ class connection():
         return True
             
     def delete_message(self,c):
+        #Used to remove user sent messages from the database at client request
         username = self._authenticate(c)
         if not username:
             c.close()
@@ -799,6 +847,7 @@ class connection():
         return True
 
     def edit_message(self,c):
+        #Used to edit the contents of user messages upon client request
         username = self._authenticate(c)
         if not username:
             c.close()
@@ -824,6 +873,7 @@ class connection():
         return True
     
     def check_user(self,c):
+        #Responds to requests to check if a username is associated with an account
         self._send_message(c,self.GOAHEAD)
         username = self._recieve_message(c)
         check = self.i.check_user(username)
@@ -836,6 +886,7 @@ class connection():
 
     
     def issue_2FA(self,c):
+        #Sends out an email 2fa code
         self._send_message(c,self.GOAHEAD)
         username = self._recieve_message(c)
         if not self.i.check_user(username):
@@ -852,6 +903,8 @@ class connection():
         return True
         
     def reset_password(self,c):
+        #Updates a user's password if they can provide
+        #a valid 2fa code
         self._send_message(c,self.GOAHEAD)
         username = self._recieve_message(c)
         if not self.i.check_user(username):
@@ -871,6 +924,7 @@ class connection():
         self._send_message(c,self.GOAHEAD)
 
     def installer(self,c):
+        #Sends all program files to a client installer
         data_files,name_files = self._file_check(self.files_path)
         self._send_message(c,len(data_files)+len(name_files),setup=True)
         self._recieve_message(c,setup=True)
@@ -899,6 +953,8 @@ class connection():
         return True
 
     def update_pubkey(self,c):
+        #Used to change a user's stored public key
+        #upon client request
         username = self._authenticate(c)
         if not username:
             c.close()
@@ -910,6 +966,8 @@ class connection():
         
 
     def check_pubkey(self,c):
+        #Used to provide client's with a given user's
+        #public key
         self._send_message(c,self.GOAHEAD)
         username = self._recieve_message(c)
         pubkey = self.i.check_pubkey(username)
@@ -922,6 +980,8 @@ class connection():
 
     
     def _file_check(self,path):#RECURSION
+        #Returns a list of all program files in the client folder
+        #Along with their classifications (data files or name files)
         things = os.listdir(path)
         data_ext = [".py",".png",".gif",".ico"]
         data_paths = []
@@ -942,6 +1002,7 @@ class connection():
         return (data_paths,name_paths)
 
     def _file_hash(self,path):
+        #Returns the SHA256 hash of a given file
         hasher = hashlib.sha256()
         file = open(path,"rb")
         while True:

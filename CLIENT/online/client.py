@@ -4,12 +4,18 @@ import time
 from threading import Thread
 from textwrap import wrap
 from online.encryption import DH,AES,RSA
-
 from user_data.user_utils import user,message_store
+
+#Object used to represent and manage all
+#networked interactions
 class connection():
-    def __init__(self,IP="127.0.0.1",PORT=12345,user_class=None,debug=True):
+    #n.b. default server IP is for testing only
+    def __init__(self,IP="127.0.0.1",PORT=12345,user_class=None,debug=False):
+        #Initiates object by setting default values
+        #(server information, communication codes, key values,
+        #encapsulated objects etc)
         self.DEBUG = debug
-        #network things
+        #network information
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.SERVER_IP = IP
         self.PORT = PORT
@@ -40,12 +46,12 @@ class connection():
         self.GOAHEAD = "200"
         self.AUTHERROR = "401"
         self.WARNINGS = {"400":"client error, incorrect command","401":"authentication error, failure to authenticate","404":"resource not found","500":"Data not allowed","501":"invalid resource"}
-        self.MATCHMAKINGERROR = "100"
         #other
         self.KEYTIMEOUT = 3600 #seconds, one hour
         self.AUTHCODE = None
         self.LARGESIZE = 20000
         self.UPLOADS = "uploads.txt"
+        #Initiating other objects
         if user_class == None:
             self.u = user()
         else:
@@ -59,9 +65,12 @@ class connection():
             self.USER_NAME = check[0]
 
     def print1(self,message):
+        #Function used to provide debug information
         if self.DEBUG:
             print(message)
+            
     def _send_message(self,sock,message,setup=False):
+        #Function used to send messages to the server
         message = str(message)
         self.print1(f"sent : {message}")
         if setup:
@@ -72,6 +81,7 @@ class connection():
             sock.sendall(encrypted_message.encode())
             
     def _recieve_message(self,size=1024,setup=False,goahead=False):
+        #Used to recieve messages from the server
         if size < 1024:
             size = 1024
         data = self.s.recv(size)
@@ -93,6 +103,8 @@ class connection():
             return message.strip()
 
     def _error_handling(self,error):
+        #Provides the appropriate error for a given
+        #error code
         error = str(error)
         error = error.strip()
         try:
@@ -101,9 +113,14 @@ class connection():
             print(error)
             error = "UNKNOWN ERROR"
         raise Exception(error)
+    
     def _size(self,s)->int:
+        #Returns the UTF-8 encoded size of a given string
         return len(s.encode('utf-8'))
-    def _initiate_connection(self,encrypted=True): #creates a connection to the server, 
+    
+    def _initiate_connection(self,encrypted=True):
+        #creates a connection to the server, optionally
+        #encrypted
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.connect((self.SERVER_IP,self.PORT))
         data = self._recieve_message(setup=True,goahead=True)
@@ -155,7 +172,9 @@ class connection():
         else:
             self._send_message(self.s,self.GOAHEAD,setup=True)
             self._recieve_message(setup=True)
+            
     def get_auth_token(self):
+        #Ensures the client has a valid cached auth code
         current_time = time.time()
         try:
             check_time,auth = self.u.t.check_auth_code()
@@ -193,6 +212,7 @@ class connection():
             return True
         
     def create_account(self,username,password,email,pub_key):
+        #Registers a new account to be stored on the server
         hasher = hashlib.sha256()
         hasher.update(password.encode())
         password = hasher.hexdigest()
@@ -202,8 +222,11 @@ class connection():
         correct = False
         while not correct:
             self._send_message(self.s,username)
+            self._recieve_message(goahead=True)
             self._send_message(self.s,password)
+            self._recieve_message(goahead=True)
             self._send_message(self.s,email)
+            self._recieve_message(goahead=True)
             self._send_message(self.s,pub_key)
             user_test = self._recieve_message()
             password_test = self._recieve_message(size=self.LARGESIZE)
@@ -220,6 +243,8 @@ class connection():
             self._error_handling(data)
 
     def authenticated_start(self):
+        #Used to initiate a connection where the client
+        #needs to be authenticated 
         if self.AUTHCODE == None:
             self.get_auth_token()
         auth = self.AUTHCODE
@@ -238,6 +263,7 @@ class connection():
             return auth
     
     def upload(self,data_to_send,shared=False,recurse=False):
+        #Used to upload a file to the server
         shared_state = "singular"
         if shared:
             shared_state = "shared"
@@ -282,6 +308,7 @@ class connection():
         return namer
 
     def ping(self):
+        #Used to ping the server (essentially checking it's online)
         try:
             self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.s.connect((self.SERVER_IP,self.PORT))
@@ -291,6 +318,7 @@ class connection():
         except:
             return False
     def login(self,username,password,hashed=False):
+        #Used to check if user provided login details are valid
         if not hashed:
             password = self._hash(password)
         self._initiate_connection()
@@ -305,11 +333,13 @@ class connection():
         return True
 
     def _hash(self,string):
+        #Returns a sha256 hash of a given string
         hasher = hashlib.sha256()
         hasher.update(string.encode())
         return(hasher.hexdigest())
     
     def update(self,filename,new):
+        #Used to update the details of an uploaded file
         auth = self.authenticated_start()
 
         self._initiate_connection()
@@ -325,6 +355,7 @@ class connection():
         return True
         
     def delete(self,file_token):
+        #Used to delete an uploaded file
         auth = self.authenticated_start()
         self._initiate_connection()
         self._send_message(self.s,self.DELETEDATA)
@@ -337,6 +368,7 @@ class connection():
         return True
     
     def view(self,filename):
+        #Used to download an uploaded file
         auth = self.authenticated_start()
         self._initiate_connection()
         self._send_message(self.s,self.VIEWDATA)
@@ -358,6 +390,7 @@ class connection():
         self.s.close()
         return final
     def share(self,filename,user_to_share):
+        #Used to provide another user account access to an uploaded file
         auth = self.authenticated_start()
         self._initiate_connection()
         self._send_message(self.s,self.SHARE)
@@ -371,6 +404,7 @@ class connection():
         return True
 
     def get_ownership(self,filename):
+        #Returns the owner of a file that has been shared with the user
         auth = self.authenticated_start()
         self._initiate_connection()
         self._send_message(self.s,self.GETOWNERSHIP)
@@ -386,6 +420,8 @@ class connection():
         return content
 
     def ping_time(self):
+        #Returns the time (in ms) it takes to recieve a response
+        #from the server
         self._initiate_connection(encrypted=False)
         current_time = time.time()
         self._send_message(self.s,self.PING,setup=True)
@@ -395,6 +431,8 @@ class connection():
         return pinger*1000
 
     def send_user_message(self,message,recipient,e2e=False):
+        #Used to send a message from this user to another user
+        #Optionally end to end encrypted
         if e2e:
             key = self.get_pubkey(recipient)
             message = "<e>" + message
@@ -424,6 +462,8 @@ class connection():
         return True
 
     def update_pubkey(self,new_pubkey):
+        #Used to inform the server that the client is using a
+        #new RSA public key
         auth = self.authenticated_start()
         self._initiate_connection()
         self._send_message(self.s,self.UPDATEPUBLICKEY)
@@ -435,6 +475,8 @@ class connection():
         return True
 
     def get_pubkey(self,username):
+        #Used to retrieve the server stored public key
+        #of a given user
         self._initiate_connection()
         self._send_message(self.s,self.GETPUBLICKEY)
         data = self._recieve_message(goahead=True)
@@ -447,6 +489,9 @@ class connection():
 
         
     def check_messages(self):
+        #Used to retrieve any messages sent from or recieved by the user
+        #since their last stored message
+        #(i.e. makes sure the messages database is up to date)
         last_message = self.u.m.most_recent_message()
         
         auth = self.authenticated_start()
@@ -491,6 +536,8 @@ class connection():
         return message_list
 
     def delete_message(self,token):
+        #Deletes a message sent by the user
+        #stored on the server
         auth = self.authenticated_start()
         self._initiate_connection()
         self._send_message(self.s,self.DELETEMESSAGE)
@@ -502,6 +549,7 @@ class connection():
         self._recieve_message(goahead=True)
 
     def edit_message(self,token,new_message):
+        #changes the contents of a message sent by the user stored on the server
         auth = self.authenticated_start()
         self._initiate_connection()
         self._send_message(self.s,self.EDITMESSAGE)
@@ -523,6 +571,7 @@ class connection():
         return True
         
     def check_user(self,username):
+        #Checks if a given username is associated with an existing user account
         self._initiate_connection()
         self._send_message(self.s,self.CHECK_USER)
         self._recieve_message(goahead=True)
@@ -533,6 +582,7 @@ class connection():
         return False
 
     def issue_2fa_code(self,username):
+        #Request that the server emails out a 2 factor authentication code
         self._initiate_connection()
         self._send_message(self.s,self.ISSUE2FA)
         self._recieve_message(goahead=True)
@@ -543,6 +593,8 @@ class connection():
         return True
 
     def reset_password(self,username,new_password,code):
+        #Requests that the server updates the user account password
+        #authenticated with a 2fa code
         hasher = hashlib.sha256()
         hasher.update(new_password.encode())
         new_password = hasher.hexdigest()
@@ -560,11 +612,14 @@ class connection():
         return True
     
     def file_to_bin(self,filename):
+        #Returns the binary representation of a given file
         bytetable = [("00000000"+bin(x)[2:])[-8:] for x in range(256)]
         binrep = "".join(bytetable[x] for x in open(filename, "rb").read())
         return binrep
     
     def bin_to_bytes(self,binrep):
+        #turns a string based binary representation
+        #into a python bytes object representation
         v = int(binrep, 2)
         b = bytearray()
         while v:
@@ -573,6 +628,7 @@ class connection():
         return bytes(b[::-1])
 
     def _file_hash(self,path):
+        #returns the sha256 hash of a given file
         hasher = hashlib.sha256()
         file = open(path,"rb")
         while True:
@@ -584,10 +640,12 @@ class connection():
         return hasher.hexdigest()
 
     def _data_hash(self,data):
+        #Returns the sha256 hash of any given data
         hasher = hashlib.sha256()
         hasher.update(data.encode())
         return hasher.hexdigest()
-if __name__ == "__main__":      
+if __name__ == "__main__":
+    #For testing purposes only
     c = connection()
     file_test = True
     match_test = False
@@ -598,7 +656,7 @@ if __name__ == "__main__":
     if file_test:
         print(c.ping())
         time.sleep(1)
-        name = c.upload("this do be a test 2699","testing234",shared=False)
+        name = c.upload("this is a test","testing",shared=False)
         time.sleep(1)
         print(c.view(name))
         time.sleep(1)

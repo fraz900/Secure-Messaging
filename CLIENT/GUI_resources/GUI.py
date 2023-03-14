@@ -13,9 +13,12 @@ import datetime
 import re
 from online.encryption import RSA
 
+#Object to represent and interact with GUI shenanigans
+#Typically acts as main thread of the program
 class GUI():
-
     def __init__(self):
+        #Initiates the object by initiating encapsulated objects
+        #and retrieving key system information (e.g. monitor size)
         self.u = user()
         self.c = connection(user_class=self.u)
         user32 = ctypes.windll.user32
@@ -24,6 +27,9 @@ class GUI():
         self.MAXFILESIZE = 128000
         
     def start(self):
+        #Function to start the GUI
+        #Checks if the server is online and if the user is already logged in
+        #provides errors and redirection as appropriate
         if self.c.ping():
             if self.u.exists:
                 try:
@@ -42,6 +48,8 @@ class GUI():
             self.error("Connection error, cannot connect to server.\n Please try again later")
 
     def error(self,error_message):
+        #Generic error function
+        #used to show an error with the given message
         top = tk.Tk()
         top.title("ERROR")
         top.geometry("300x100")
@@ -53,6 +61,7 @@ class GUI():
         top.mainloop()
         
     def login(self):
+        #Opens the login GUI window
         c = connection()
         top = tk.Tk()
         top.title("login")
@@ -64,6 +73,7 @@ class GUI():
         name_var=tk.StringVar()
         passw_var=tk.StringVar()
         def handler():
+            #Used to begin the loading gif animation
             threading.Thread(target=start_loading).start()
             t = threading.Thread(target=submit).start()
             try:
@@ -72,6 +82,9 @@ class GUI():
                 None
 
         def import_account():
+            #Run when the user asks to import a user account profile
+            #retrieves filename through file dialogue
+            #and redirects appropriately
             filepath = fd.askopenfilename()
             if not filepath:
                 return False
@@ -83,6 +96,10 @@ class GUI():
                 login_error.config("Invalid account file",fg="red")
                 
         def submit():
+            #Used to submit a login attempt
+            #Retrieves data from input fields and checks if login is valid
+            #If so, stores user account information
+            #If not, throws error
             name=name_var.get()
             password=passw_var.get()
             try:
@@ -103,10 +120,12 @@ class GUI():
             name_var.set("")
             passw_var.set("")
         def register():
+            #Used to redirect to account registration window
             top.destroy()
             self.register_account()
             
         def forgot_password(dummy):
+            #Used to redirect to forgotten password window
             username = name_var.get()
             if username == "":
                 login_error.config(text="Please enter a valid username to send a reset link",fg="red")
@@ -117,7 +136,8 @@ class GUI():
             self.c.issue_2fa_code(username)
             top.destroy()
             self.forgot_pword(username)
-            
+
+        #GUI formatting   
         txt_frm = tk.Frame(top,width=400,height=250)
         txt_frm.grid(row=0,column=0, sticky="n")
         name_label = tk.Label(txt_frm, text = 'Username', font=('calibre',10, 'bold'))  
@@ -163,6 +183,7 @@ class GUI():
         global repeat
         repeat = True
         def start_loading(n=1):
+            #Begins playing the loading GIF animation
             gif = giflist[n%len(giflist)]
             top.resizer = resizer = ImageTk.PhotoImage(gif.resize((50,50),Image.ANTIALIAS))
             img = canvas.create_image(235,25, image=top.resizer)
@@ -171,12 +192,14 @@ class GUI():
             else:
                 canvas.delete(img)
         def end_loading():
+            #Ends the loading GIF animation
             global repeat
             repeat = False
         top.resizable(False,False)
         top.mainloop()
 
     def forgot_pword(self,username):
+        #Opens forgotten  password window
         top = tk.Tk()
         top.title="Forgot Password"
         
@@ -185,6 +208,8 @@ class GUI():
         pword_var = tk.StringVar()
         code_var = tk.StringVar()
         def reset():
+            #retrieves requested new password and inputted code from the user
+            #and attempts to reset password
             new_pword = pword_var.get()
             code = code_var.get()
             try:
@@ -193,8 +218,10 @@ class GUI():
             except:
                 error_label.configure(text="Password reset failed",fg="red")
         def on_closing():
+            #redirect to login window when this window is closed
             top.destroy()
             self.login()
+        #GUI formatting
         txt_frm = tk.Frame(top,width=400,height=250)
         txt_frm.grid(row=0,column=0, sticky="n")
         greeting = tk.Label(txt_frm, text = f"{username}'s password reset", font=('calibre',10, 'bold'))
@@ -216,6 +243,7 @@ class GUI():
         top.protocol("WM_DELETE_WINDOW",on_closing)
         
     def register_account(self):
+        #Opens the account registration window
         top = tk.Tk()
         top.title("Register Account")
         canvas=tk.Canvas(top, width=400, height=500)
@@ -228,6 +256,8 @@ class GUI():
         email_var = tk.StringVar()
 
         def register():
+            #Retireves account information from user inputs
+            #and attempts to register that account
             name = name_var.get()
             password = passw_var.get()
             email = email_var.get()
@@ -250,12 +280,14 @@ class GUI():
             top.destroy()
             self.main()
         def check_email_is_valid(email):
+            #Uses a regex search to check if a given email address is valid
             first = re.search("^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$",email)
             second = re.search("^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}[.]\w{2,3}$",email)
             if first or second:
                 return True
             return False
 
+        #GUI formatting
         txt_frm = tk.Frame(top,width=400,height=250)
         txt_frm.grid(row=0,column=0, sticky="n")
         name_label = tk.Label(txt_frm, text = 'Username', font=('calibre',10, 'bold'))  
@@ -282,6 +314,7 @@ class GUI():
         #top.protocol("WM_DELETE_WINDOW",on_closing)
         
     def main(self):
+        #Opens main messaging window
         self.fileupload = False
         self.editing = False
         self.e2e = False
@@ -298,6 +331,9 @@ class GUI():
         message = tk.StringVar()
         self.message_box_var = message
         def send():
+            #Used to send a message from the user (when they press the button
+            #or press enter). Sends the information to the server, adds it to
+            #the database and shows it in the GUI
             if self.editing:
                 self.value.content = message.get()
                 message_box.delete(self.num)
@@ -337,9 +373,12 @@ class GUI():
             messages()
             message_box.yview_moveto(1)
         def exiter():
+            #Exits the program
             top.destroy()
 
         def messages():
+            #Used to update the messages box
+            #(i.e. show the messages to and from the selected user)
             message_box.delete(0,(message_box.size()-1))
             try:
                 friend_num = friends_box.curselection()[0]
@@ -375,12 +414,16 @@ class GUI():
             e2e_label.configure(text="End to End encryption not enabled",fg="red")
 
         def add_friend():
+            #Opens the add friend window
             self.add_friend_window(top,friends_box)
 
         def settings():
+            #opens the settings window
             self.settings_window(top,message_box)
             
         def add_file():
+            #Used by users to select a file they would like to send
+            #as a message
             filepath = fd.askopenfilename()
             info = os.stat(filepath)
             if info.st_size > self.MAXFILESIZE:
@@ -394,6 +437,7 @@ class GUI():
             message_entry.configure(state="disabled",fg="gray")
 
         def remove_file():
+            #Used to cancel a file upload 
             self.fileupload = False
             message.set("")
             message_entry.configure(state="normal",fg="black")
@@ -401,6 +445,7 @@ class GUI():
 
 
         def do_popup(event):
+            #Used when a user right clicks on a message
             posy = message_box.winfo_rooty() 
             selected = message_box.nearest((event.y_root-posy))
             message = self.message_list[selected]
@@ -409,6 +454,8 @@ class GUI():
             m = tk.Menu(message_box,tearoff=0)
 
             def delete(file=False):
+                #Used to delete a user selected message
+                #(deletes from database, GUI and server)
                 if file:
                     info = message.content.split(",")
                     retrieval = info[1]
@@ -417,6 +464,7 @@ class GUI():
                 self.u.m.delete_message(message.token)
                 message_box.delete(selected)
             def edit():
+                #Used to edit a user seleced message
                 if not self.e2e:
                     remove_file()
                     self.message_box_var.set(message.content)
@@ -425,6 +473,7 @@ class GUI():
                     self.num = selected
                 else:
                     self.notif(top,"Cannot edit End to End encrypted messages")
+            #Provides different right click options depending on the message type
             if message.content.startswith("<file>"):
                 m.add_command(label="Download",command=lambda: threading.Thread(download(message)).start())
                 if message.author == self.u.username:
@@ -444,6 +493,7 @@ class GUI():
             finally:
                 m.grab_release()
         def view_info(message):
+            #Used to view the pure information stores about a given message
             topper = tk.Toplevel(top)
             topper.geometry("750x250")
             topper.title("Message Info")
@@ -459,6 +509,7 @@ class GUI():
             token_label.grid(row=4,column=0)
 
         def download(message):
+            #Used to download a selected uploaded file
             info = message.content.split(",")
             retrieval = info[1]
             filename = info[2]
@@ -472,21 +523,27 @@ class GUI():
             self.notif(top,"download complete")
 
         def logout():
+            #Used to logout of account
             self.u.delete("account")
             top.destroy()
             self.login()
         def messager(dummy=""):
+            #Updates message box (when a user presses ctrl+r)
             self.c.check_messages()
             messages()
 
         def character_limit(entry_text):
+            #Prevents users from typing more than 255 characters in the message box
             if len(message.get())>0:
                 message.set(entry_text.get()[:255])
 
         def endToEnd():
+            #Activates end 2 end encryption for messages when a button is pressed
             e2e_button.grid_remove()
             e2e_label.configure(text="End to End encryption enabled",fg="green")
             self.e2e = True
+
+        #GUI formatting
         frame = tk.Frame(top,width=400,height=100,bg="red")
         frame.grid(row=1,column=0, sticky="n")
         
@@ -547,6 +604,7 @@ class GUI():
         top.mainloop()
 
     def add_friend_window(self,top,friends_box):
+        #Opens window used to add friend
         topper = tk.Toplevel(top)
         topper.geometry("750x250")
         topper.title("Start chat")
@@ -576,6 +634,7 @@ class GUI():
         error_lbl.grid(row=3,column=1)
 
     def settings_window(self,top,message_box):
+        #Opens window to change settings
         topper = tk.Toplevel(top)
         topper.geometry("750x250")
         topper.title("Settings")
@@ -660,11 +719,14 @@ class GUI():
         export_settings_button.grid(row=5,column=0)
         
     def unix_to_normal_time(self,time):
+        #Converts unix timestamps to a human readable datetime format
         new = datetime.datetime.fromtimestamp(time)
         timer = new.strftime("%H:%M %d/%m/%Y")
         return timer
 
     def notif(self,top,message):
+        #generic notification function
+        #Provides a notification with the given message
         topper = tk.Toplevel(top)
         topper.geometry("500x200")
         topper.title("Notification")
